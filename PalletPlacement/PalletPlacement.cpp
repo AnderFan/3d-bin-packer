@@ -12,15 +12,12 @@ vector<box*> input_values() { // имитация ввода коробок
 
     std::vector<box_property> input_boxs;
 
-    const box_property small_a_type{ 20,  3, 3, 3,   2 };
-    const box_property small_b_type{ 12,  6, 3, 3,   3 };
-    const box_property small_c_type{ 8,  3, 6, 3,   3 };
-    const box_property small_d_type{ 8,  6, 6, 3,   5 };
+	//     { кол-во, ширина, высота, глубина, вес }
+    input_boxs = { {{ 20, 3, 3, 3, 2 },
+                    { 12, 6, 3, 3, 3 },
+                     { 8, 3, 6, 3, 3 },
+                     { 8, 6, 6, 3, 5 }}};
 
-    input_boxs.push_back(small_a_type);
-    input_boxs.push_back(small_b_type);
-    input_boxs.push_back(small_c_type);
-    input_boxs.push_back(small_d_type);
 
     for (const auto& box_type : input_boxs) {
         for (int i = 0; i < box_type.Quantity; ++i) {

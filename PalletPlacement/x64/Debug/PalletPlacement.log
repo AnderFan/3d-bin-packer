@@ -3,9 +3,11 @@ C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.3520
 C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\ascii_render.cpp(370,7): warning C4101: 'no_box': unreferenced local variable
   data.h
   PalletPlacement.cpp
-  pallet_functions.cpp
-C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\pallet_functions.cpp(637,20): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\pallet_functions.cpp(638,19): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  pal_box.cpp
+  pal_meb.cpp
+C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\pal_meb.cpp(13,20): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\pal_meb.cpp(14,19): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  pal_zone.cpp
   Generating Code...
   PalletPlacement.vcxproj -> C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\x64\Debug\PalletPlacement.exe
   "pwsh.exe" не является внутренней или внешней

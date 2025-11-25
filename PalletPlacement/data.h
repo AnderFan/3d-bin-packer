@@ -92,9 +92,5 @@ struct CenterMassResult {
 
  extern std::ofstream debug_log;
 
- //extern std::ofstream ascii_view;
-
- //extern vector<vector<box*> > grouped_boxes; // те же самые коробки, но сгрупированные по высоте
-
 
 #endif

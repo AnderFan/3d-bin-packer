@@ -130,7 +130,9 @@
     <ClCompile Include="ascii_render.cpp" />
     <ClCompile Include="data.h" />
     <ClCompile Include="PalletPlacement.cpp" />
-    <ClCompile Include="pallet_functions.cpp" />
+    <ClCompile Include="pal_box.cpp" />
+    <ClCompile Include="pal_meb.cpp" />
+    <ClCompile Include="pal_zone.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="functions.h" />

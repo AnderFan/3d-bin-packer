@@ -21,10 +21,16 @@
     <ClCompile Include="data.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="pallet_functions.cpp">
+    <ClCompile Include="pal_box.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ascii_render.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pal_zone.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pal_meb.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
