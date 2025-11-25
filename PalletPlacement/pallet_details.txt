@@ -1,0 +1,144 @@
+Box index: 0
+Its start X 0, and its X end 7
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 7
+Box index: 1
+Its start X 0, and its X end 7
+Its start Y 0, and its Y end 10
+Its start Z 7, and its Z end 14
+Box index: 2
+Its start X 0, and its X end 4
+Its start Y 0, and its Y end 10
+Its start Z 14, and its Z end 16
+Box index: 3
+Its start X 0, and its X end 2
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 4
+Its start X 2, and its X end 4
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 5
+Its start X 4, and its X end 6
+Its start Y 0, and its Y end 10
+Its start Z 14, and its Z end 18
+Box index: 6
+Its start X 7, and its X end 9
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 4
+Box index: 7
+Its start X 7, and its X end 9
+Its start Y 0, and its Y end 10
+Its start Z 4, and its Z end 8
+Box index: 8
+Its start X 7, and its X end 9
+Its start Y 0, and its Y end 10
+Its start Z 8, and its Z end 12
+Box index: 9
+Its start X 7, and its X end 9
+Its start Y 0, and its Y end 10
+Its start Z 12, and its Z end 16
+Box index: 10
+Its start X 7, and its X end 9
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 11
+Its start X 9, and its X end 11
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 4
+Box index: 12
+Its start X 9, and its X end 11
+Its start Y 0, and its Y end 10
+Its start Z 4, and its Z end 8
+Box index: 13
+Its start X 9, and its X end 11
+Its start Y 0, and its Y end 10
+Its start Z 8, and its Z end 12
+Box index: 14
+Its start X 9, and its X end 11
+Its start Y 0, and its Y end 10
+Its start Z 12, and its Z end 16
+Box index: 15
+Its start X 9, and its X end 11
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 16
+Its start X 11, and its X end 13
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 4
+Box index: 17
+Its start X 11, and its X end 13
+Its start Y 0, and its Y end 10
+Its start Z 4, and its Z end 8
+Box index: 18
+Its start X 11, and its X end 13
+Its start Y 0, and its Y end 10
+Its start Z 8, and its Z end 12
+Box index: 19
+Its start X 11, and its X end 13
+Its start Y 0, and its Y end 10
+Its start Z 12, and its Z end 16
+Box index: 20
+Its start X 11, and its X end 13
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 21
+Its start X 13, and its X end 15
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 4
+Box index: 22
+Its start X 13, and its X end 15
+Its start Y 0, and its Y end 10
+Its start Z 4, and its Z end 8
+Box index: 23
+Its start X 13, and its X end 15
+Its start Y 0, and its Y end 10
+Its start Z 8, and its Z end 12
+Box index: 24
+Its start X 13, and its X end 15
+Its start Y 0, and its Y end 10
+Its start Z 12, and its Z end 16
+Box index: 25
+Its start X 13, and its X end 15
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 26
+Its start X 15, and its X end 17
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 4
+Box index: 27
+Its start X 15, and its X end 17
+Its start Y 0, and its Y end 10
+Its start Z 4, and its Z end 8
+Box index: 28
+Its start X 15, and its X end 17
+Its start Y 0, and its Y end 10
+Its start Z 8, and its Z end 12
+Box index: 29
+Its start X 15, and its X end 17
+Its start Y 0, and its Y end 10
+Its start Z 12, and its Z end 16
+Box index: 30
+Its start X 15, and its X end 17
+Its start Y 0, and its Y end 10
+Its start Z 16, and its Z end 20
+Box index: 31
+Its start X 17, and its X end 19
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 4
+Box index: 32
+Its start X 17, and its X end 19
+Its start Y 0, and its Y end 10
+Its start Z 4, and its Z end 8
+33 boxes placed out of0
+
+
+ZONES
+Zone index: 1
+Its start X 17, and its X end 19
+Its start Y 0, and its Y end 10
+Its start Z 8, and its Z end 20
+Zone index: 2
+Its start X 19, and its X end 20
+Its start Y 0, and its Y end 10
+Its start Z 0, and its Z end 20
