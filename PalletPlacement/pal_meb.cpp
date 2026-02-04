@@ -5,29 +5,32 @@
 #include <cmath>
 #include <utility>  
 
-// ДАЛЬШЕ MEB-регенерация. Уже не так страшно как то что выше, МОЖНО ВЫДЫХАТЬ!!
-
 struct AABB { int x, y, z, w, d, h; };
 
+void meb_gen(pallet* pal_ptr) {
+	replace_zones_with_meb(pal_ptr);   // ← MEB-регенерация
+	pal_ptr->placed_since_meb = 0;
+	pal_ptr->failed_in_row = 0;
+	pal_ptr->was_defrag = true;
+	cout << "Пошла дефрагация";
+	for (auto& v : pal_ptr->zone_vector) {
+		cout << "Зона имеет размеры ";
+		cout << "(" << v->xyz_size[0] << ", " << v->xyz_size[1] << ", " << v->xyz_size[2] << ") ";
+		cout << "(" << v->xyz[0] << ", " << v->xyz[1] << ", " << v->xyz[2] << ")" << endl;
+	}
+}
+
 void check_meb(pallet* pal_ptr) {
-	int SUCCESS_PLACE = total_boxes.size() / 2;
-	int FAILER_PLACE = total_boxes.size() / 2;
+	int SUCCESS_PLACE = total_boxes.size() < 20 ? 10 : total_boxes.size() / 2;
+	int FAILER_PLACE = total_boxes.size() < 20 ? 5 : total_boxes.size() / 3;;
 
 	if ((pal_ptr->placed_since_meb >= SUCCESS_PLACE || pal_ptr->failed_in_row >= FAILER_PLACE) && pal_ptr->was_defrag == false) {
-		replace_zones_with_meb(pal_ptr);   // ← MEB-регенерация
-		pal_ptr->placed_since_meb = 0;
-		pal_ptr->failed_in_row = 0;
-		pal_ptr->was_defrag = true;
-		cout << "Пошла дефрагация";
-		for (auto& v : pal_ptr->zone_vector) {
-			cout << "Зона имеет размеры ";
-			cout << "(" << v->xyz_size[0] << ", " << v->xyz_size[1] << ", " << v->xyz_size[2] << ") ";
-			cout << "(" << v->xyz[0] << ", " << v->xyz[1] << ", " << v->xyz[2] << ")" << endl;
-		}
-
+		meb_gen(pal_ptr);
 	}
 
 }
+
+
 
 inline bool aabb_intersect(const AABB& a, const AABB& b) {
 	return !(a.x + a.w <= b.x || b.x + b.w <= a.x ||
@@ -55,69 +58,54 @@ static void uniq_sort(std::vector<int>& v) {
 	v.erase(std::unique(v.begin(), v.end()), v.end());
 }
 
-// Сетка задаётся тремя отсортированными массивами координат Xs, Ys, Zs.
-// Узел сетки – это тройка индексов (xi, yi, zi) -> точка (Xs[xi], Ys[yi], Zs[zi]).
-//
-// grow_meb_from_node строит МАКСИМАЛЬНЫЙ пустой параллелепипед,
-// который начинается в узле (xi, yi, zi):
-// 1) стартуем минимальной ячейкой [Xs[xi], Xs[xi+1]) × [Ys[yi], Ys[yi+1]) × [Zs[zi], Zs[zi+1])
-// 2) растягиваем её вправо по X, пока пусто
-// 3) затем растягиваем по Y, пока пусто
-// 4) затем по Z, пока пусто
 AABB grow_meb_from_node(int xi, int yi, int zi,
 	const std::vector<int>& Xs,
 	const std::vector<int>& Ys,
 	const std::vector<int>& Zs,
 	const std::vector<box*>& placed)
 {
-	// Границы индексов: следующий узел справа/вперёд/вверх должен существовать
+	// Границы индексов
 	if (xi + 1 >= (int)Xs.size() || yi + 1 >= (int)Ys.size() || zi + 1 >= (int)Zs.size()) {
-		return AABB{ 0,0,0,0,0,0 }; // нет элементарной ячейки
+		return AABB{ 0,0,0,0,0,0 };
 	}
 
-	// 1) минимальная ячейка от текущего узла до ближайших правых Xs/Ys/Zs
+	// 1) минимальная ячейка
 	AABB cur{ Xs[xi], Ys[yi], Zs[zi],
 			  Xs[xi + 1] - Xs[xi],
 			  Ys[yi + 1] - Ys[yi],
 			  Zs[zi + 1] - Zs[zi] };
 
-	// Если ячейка нулевая или в ней уже стоит коробка — с этого узла ничего не вырастет
-	if (aabb_empty(cur) || !empty_of_boxes(cur, placed)) return AABB{ 0,0,0,0,0,0 };
-
-	// 2) Растяжка по X: пробуем двигать правую грань на следующий Xs,
-	//    каждый раз проверяя пустоту ВСЕГО нового объёма.
-	int xj = xi + 1;
-	while (xj + 1 < (int)Xs.size()) {
-		AABB test = cur;
-		test.w = Xs[xj + 1] - cur.x; // растянули вправо
-		if (!empty_of_boxes(test, placed)) break; // упёрлись в коробку/границу
-		cur = test; // приняли растяжку
-		++xj;
+	if (aabb_empty(cur) || !empty_of_boxes(cur, placed)) {
+		return AABB{ 0,0,0,0,0,0 };
 	}
 
-	// 3) растяжка по Y (вперёд)
-	int yj = yi + 1;
-	while (yj + 1 < (int)Ys.size()) {
+	// 2) Растяжка по X: пробуем растянуть вправо до каждого следующего координата
+	for (int xj = xi + 2; xj < (int)Xs.size(); ++xj) {  // ← ПРАВИЛЬНО: xj идёт от xi+2
 		AABB test = cur;
-		test.d = Ys[yj + 1] - cur.y;
+		test.w = Xs[xj] - cur.x;  // растянули до Xs[xj]
+		if (!empty_of_boxes(test, placed)) break;  // упёрлись в коробку
+		cur = test;  // приняли растяжку
+	}
+
+	// 3) растяжка по Y
+	for (int yj = yi + 2; yj < (int)Ys.size(); ++yj) {
+		AABB test = cur;
+		test.d = Ys[yj] - cur.y;
 		if (!empty_of_boxes(test, placed)) break;
 		cur = test;
-		++yj;
 	}
 
-	// 4) растяжка по Z (вверх)
-	int zj = zi + 1;
-	while (zj + 1 < (int)Zs.size()) {
+	// 4) растяжка по Z
+	for (int zj = zi + 2; zj < (int)Zs.size(); ++zj) {
 		AABB test = cur;
-		test.h = Zs[zj + 1] - cur.z;
+		test.h = Zs[zj] - cur.z;
 		if (!empty_of_boxes(test, placed)) break;
 		cur = test;
-		++zj;
 	}
 
-	// cur — максимальный пустой параллелепипед, "приросший" из узла
 	return cur;
 }
+
 
 // Строим новый список зон (zone*) из MEB-боксов на основании УЖЕ уложенных коробок.
 // Эти зоны заменят текущий zone_vector → «дефрагментация».
@@ -144,7 +132,7 @@ std::vector<zone*> build_meb_zones(pallet* pal) {
 			for (int zi = 0; zi < (int)Zs.size() - 1; ++zi) {
 				AABB meb = grow_meb_from_node(xi, yi, zi, Xs, Ys, Zs, pal->placed_boxes);
 				if (!aabb_empty(meb)) {
-					// Преобразуем AABB в твою zone
+					// Преобразуем AABB в zone
 					out.push_back(new zone{
 						{meb.x, meb.y, meb.z},      // xyz
 						{meb.w, meb.d, meb.h},      // xyz_size

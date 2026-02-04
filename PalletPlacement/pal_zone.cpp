@@ -8,11 +8,11 @@
 
 zone* select_zone(pallet* pallet_ptr) { 
 	zone* best = nullptr;
-	int best_score = INT_MAX;
+	array<int, 2> best_score = { INT_MAX, INT_MAX };
 	for (auto* z : pallet_ptr->zone_vector) { // Проходка по всем зона
 		if (!z->usable) continue; 
 		int vol = z->xyz_size[0] * z->xyz_size[1] * z->xyz_size[2]; // высчитываем объём
-		int score = vol + z->xyz[1] * 100; // подсчитываем счёт, если объём одинаковый, то мы будем выбирать ту зону, что ниже
+		array<int, 2> score = { z->xyz[1], vol }; // подсчитываем счёт, если объём одинаковый, то мы будем выбирать ту зону, что ниже
 		if (score < best_score) {
 			best_score = score;
 			best = z;
@@ -275,36 +275,140 @@ void erase_dub(pallet* pal_ptr) {
 }
 
 void split_zone(pallet* pallet_ptr, zone* zone_to_split_pointer, box* box_ptr) {
-	zone_to_split_pointer->usable = false;
-	pallet_ptr->zone_dead_vector.push_back(zone_to_split_pointer); // добавляем зону в мертвые зоны
-	kill_zone(pallet_ptr, zone_to_split_pointer); // удаляем зону из активных зон
+	// Сохраняем данные зоны ДО удаления
+	const int zx = zone_to_split_pointer->xyz[0];
+	const int zy = zone_to_split_pointer->xyz[1];
+	const int zz = zone_to_split_pointer->xyz[2];
+	const int zsx = zone_to_split_pointer->xyz_size[0];
+	const int zsy = zone_to_split_pointer->xyz_size[1];
+	const int zsz = zone_to_split_pointer->xyz_size[2];
+	const int zx2 = zx + zsx;
+	const int zy2 = zy + zsy;
+	const int zz2 = zz + zsz;
 
-	auto r = box_ptr->rotate;
-	const int x = box_ptr->xyz[0], y = box_ptr->xyz[1], z = box_ptr->xyz[2];
-	const int sx = box_ptr->xyz_size[r][0], sy = box_ptr->xyz_size[r][1], sz = box_ptr->xyz_size[r][2];
-	//const int zx = zone_to_split_pointer->xyz[0], zy = zone_to_split_pointer->xyz[1], zz = zone_to_split_pointer->xyz[2];
-	const int zsx = zone_to_split_pointer->xyz_size[0], zsy = zone_to_split_pointer->xyz_size[1], zsz = zone_to_split_pointer->xyz_size[2];
-	const int zx = zone_to_split_pointer->xyz[0], zy = zone_to_split_pointer->xyz[1], zz = zone_to_split_pointer->xyz[2];
-	const int x2 = x + sx, y2 = y + sy, z2 = z + sz;
-	const int zx2 = zx + zsx, zy2 = zy + zsy, zz2 = zz + zsz;
+	// Данные коробки
+	const int r = box_ptr->rotate;
+	const int bx = box_ptr->xyz[0];
+	const int by = box_ptr->xyz[1];
+	const int bz = box_ptr->xyz[2];
+	const int bsx = box_ptr->xyz_size[r][0];
+	const int bsy = box_ptr->xyz_size[r][1];
+	const int bsz = box_ptr->xyz_size[r][2];
+	const int bx2 = bx + bsx;
+	const int by2 = by + bsy;
+	const int bz2 = bz + bsz;
+
+	// Удаляем старую зону
+	zone_to_split_pointer->usable = false;
+	pallet_ptr->zone_dead_vector.push_back(zone_to_split_pointer);
+	kill_zone(pallet_ptr, zone_to_split_pointer);
 
 	auto add_zone = [&](int ax, int ay, int az, int asx, int asy, int asz) {
-		if (asx <= 0 || asy <= 0 || asz <= 0) return; // отсекаем пустые зоны
+		if (asx <= 0 || asy <= 0 || asz <= 0) return;
+		if (ax < 0 || ay < 0 || az < 0) {
+			std::cout << "CRITICAL ERROR: Zone at negative coords: "
+				<< ax << ", " << ay << ", " << az << std::endl;
+			return;
+		}
 		pallet_ptr->zone_vector.push_back(new zone{ {ax, ay, az}, {asx, asy, asz}, true });
 		};
 
-	//add_zone(x + sx, y, z, zsx - sx, sy, zsz); // справа
-	//add_zone(x, y, z + sz, sx, sy, zsz - sz); // спереди
-	//add_zone(x, y + sy, z, sx, zsy - sy, sz); // сверху
+	// GUILLOTINE SPLIT (непересекающиеся зоны)
 
-	// справа (по X)
-	add_zone(x2, y, z, zx2 - x2, zsy, zsz);
-	// спереди (по Y)
-	add_zone(x, y2, z, x2 - x, zy2 - y2, zsz);
-	// сверху (по Z)
-	add_zone(x, y, z2, x2 - x, y2 - y, zz2 - z2);
+	// 1. Справа (по X): от правой грани коробки до правой грани зоны
+	//    Занимает ВСЮ высоту и глубину ЗОНЫ (не коробки!)
+	add_zone(bx2, zy, zz, zx2 - bx2, zsy, zsz);
 
+	// 2. Сверху (по Y): от верха коробки до верха зоны
+	//    Ширина ограничена коробкой (справа уже занято зоной 1)
+	//    Глубина - вся глубина зоны
+	add_zone(bx, by2, zz, bsx, zy2 - by2, zsz);
+
+	// 3. Сзади (по Z): от задней грани коробки до конца зоны
+	//    Ширина и высота ограничены коробкой (остальное занято зонами 1 и 2)
+	add_zone(bx, by, bz2, bsx, bsy, zz2 - bz2);
 }
+//void split_zone(pallet* pallet_ptr, zone* zone_to_split_pointer, box* box_ptr) {
+//	// 1. Сохраняем параметры удаляемой зоны
+//	const int zx = zone_to_split_pointer->xyz[0];
+//	const int zy = zone_to_split_pointer->xyz[1];
+//	const int zz = zone_to_split_pointer->xyz[2];
+//
+//	const int zsx = zone_to_split_pointer->xyz_size[0];
+//	const int zsy = zone_to_split_pointer->xyz_size[1];
+//	const int zsz = zone_to_split_pointer->xyz_size[2];
+//
+//	const int zx2 = zx + zsx;
+//	const int zy2 = zy + zsy;
+//	const int zz2 = zz + zsz;
+//
+//	// 2. Параметры коробки
+//	auto r = box_ptr->rotate;
+//	const int bx = box_ptr->xyz[0];
+//	const int by = box_ptr->xyz[1];
+//	const int bz = box_ptr->xyz[2];
+//
+//	const int bsx = box_ptr->xyz_size[r][0];
+//	const int bsy = box_ptr->xyz_size[r][1];
+//	const int bsz = box_ptr->xyz_size[r][2];
+//
+//	const int bx2 = bx + bsx;
+//	const int by2 = by + bsy;
+//	const int bz2 = bz + bsz;
+//
+//	// Удаляем старую зону
+//	zone_to_split_pointer->usable = false;
+//	pallet_ptr->zone_dead_vector.push_back(zone_to_split_pointer);
+//	kill_zone(pallet_ptr, zone_to_split_pointer);
+//
+//	auto add_zone = [&](int ax, int ay, int az, int asx, int asy, int asz) {
+//		if (asx <= 0 || asy <= 0 || asz <= 0) return;
+//		if (ax < 0 || ay < 0 || az < 0) {
+//			cout << "CRITICAL ERROR: Zone created at negative coords\n";
+//			return;
+//		}
+//		pallet_ptr->zone_vector.push_back(new zone{ {ax, ay, az}, {asx, asy, asz}, true });
+//		};
+//
+//	// --- СТРАТЕГИЯ MAXIMAL RECTANGLES ---
+//	// Генерируем новые зоны относительно границ исходной зоны.
+//	// Если коробка делит пространство, создаем максимальные прямоугольники во всех направлениях.
+//
+//	// 1. Справа (Right) - пространство от правой грани коробки до правой грани зоны
+//	// Занимает всю доступную высоту и глубину исходной зоны.
+//	if (bx2 < zx2) {
+//		add_zone(bx2, zy, zz, zx2 - bx2, zsy, zsz);
+//	}
+//
+//	// 2. Слева (Left) - если коробка не прижата к левому краю (например, центрирование)
+//	// В вашем алгоритме обычно прижимают к (0,0), но для универсальности:
+//	if (bx > zx) {
+//		add_zone(zx, zy, zz, bx - zx, zsy, zsz);
+//	}
+//
+//	// 3. Сзади (Back / по Z) - пространство от дальней грани коробки до конца зоны
+//	// Занимает всю ширину исходной зоны
+//	if (bz2 < zz2) {
+//		add_zone(zx, zy, bz2, zsx, zsy, zz2 - bz2);
+//	}
+//
+//	// 4. Спереди (Front / по Z) - если коробка не прижата к началу Z
+//	if (bz > zz) {
+//		add_zone(zx, zy, zz, zsx, zsy, bz - zz);
+//	}
+//
+//	// 5. Сверху (Top / по Y) - пространство строго НАД коробкой (или над всей зоной?)
+//	// Обычно зона сверху опирается на коробку, поэтому ее база - это верх коробки.
+//	// Но она может "нависать".
+//	// Вариант А: Зона над всей площадью зоны (если коробка внизу)
+//	if (by2 < zy2) {
+//		add_zone(zx, by2, zz, zsx, zy2 - by2, zsz);
+//	}
+//
+//	// Вариант Б (более точный для поддержки): Зона строго над крышкой коробки
+//	// add_zone(bx, by2, bz, bsx, zy2 - by2, bsz); 
+//	// Обычно используется Вариант А, а zone_cleanup потом разрезает пересечения.
+//}
 
 
 bool try_merge_once(vector<zone*>& zs) {
@@ -365,17 +469,17 @@ void zone_cleanup(pallet* pal_ptr) { // чистим зоны от мусора.
 	// здесь я до сих пор не до конца понимаю
 
 	clipping(pal_ptr); // обрезаем зоны по размерам паллеты
-	sort_by_xyz_then_size(pal_ptr->zone_vector); // сортируем зоны по координатам и размерам
+	//sort_by_xyz_then_size(pal_ptr->zone_vector); // сортируем зоны по координатам и размерам
 	erase_dub(pal_ptr); // удаляем дублирующиеся зоны
-	sub_zone(pal_ptr); // Вырезаем кусочки пересекающихся зон UPD: Возможно стоит просто убирать самую большую зону.
+	//sub_zone(pal_ptr); // Вырезаем кусочки пересекающихся зон UPD: Возможно стоит просто убирать самую большую зону.
 
 
 
-	sort_by_xyz_then_size(pal_ptr->zone_vector);
-	remove_contained(pal_ptr->zone_vector); // удаляем зоны которые полностью содержатся в других зонах
+	//sort_by_xyz_then_size(pal_ptr->zone_vector);
+	//remove_contained(pal_ptr->zone_vector); // удаляем зоны которые полностью содержатся в других зонах
 
 
-	merge_zone(pal_ptr->zone_vector); // Мердж соседних зон
+	//merge_zone(pal_ptr->zone_vector); // Мердж соседних зон
 
 	//// После мерджа опять чистим от мусора
 	clipping(pal_ptr);
@@ -395,17 +499,13 @@ void zone_cleanup(pallet* pal_ptr) { // чистим зоны от мусора.
 }
 
 void replace_zones_with_meb(pallet* pal) {
-	// 1) построили новый набор зон
 	auto newZones = build_meb_zones(pal);
 
-	// 2) удалили старые зоны (raw* → важно освободить память)
 	for (auto* z : pal->zone_vector) delete z;
 	pal->zone_vector.clear();
 
-	// 3) заменили на новые
 	pal->zone_vector = std::move(newZones);
 
-	// 4) лёгкая санитарка (твои уже готовые функции)
 	clipping(pal);                                  // обрезать по габаритам паллеты
 	sort_by_xyz_then_size(pal->zone_vector);        // стабильность порядка
 	remove_contained(pal->zone_vector);             // убрать зоны, полностью внутри других

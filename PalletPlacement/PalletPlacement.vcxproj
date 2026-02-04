@@ -129,13 +129,18 @@
   <ItemGroup>
     <ClCompile Include="ascii_render.cpp" />
     <ClCompile Include="data.h" />
+    <ClCompile Include="graphics.cpp" />
+    <ClCompile Include="gui.cpp" />
     <ClCompile Include="PalletPlacement.cpp" />
     <ClCompile Include="pal_box.cpp" />
+    <ClCompile Include="pal_handle.cpp" />
     <ClCompile Include="pal_meb.cpp" />
     <ClCompile Include="pal_zone.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="functions.h" />
+    <ClInclude Include="graphics.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -4,6 +4,9 @@
 
 #include "data.h"
 
+// Main pallet handling function
+void pallet_handle(pallet* pal_ptr); // Main algorithm for placing boxes on pallet
+
 
 
 // Зоновые функции #####################
@@ -34,7 +37,7 @@ std::vector<zone*> build_meb_zones(pallet* pal); // Строим новый сп
 
 void check_meb(pallet* pal_ptr); // проверяем нужно ли делать дефрагментацию зон
 
-
+void meb_gen(pallet* pal_ptr); 
 
 // Функции взаимодействия с коробокой #####################
 void sort_boxes_decreasing();
@@ -55,7 +58,7 @@ CenterMassResult simulate_center_mass(const pallet* pal_ptr, int box_mass, doubl
 void center_mass_calculate(pallet* pal_ptr, box* box_ptr); // расчет центра масс паллета после добавления коробки
 
 // эта функия считает кол-во очков для данной коробки И ЛОЖИТ ЭТИ ОЧКИ НАЗАД В КОРОБКУ
-array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd, int mass, double ratio, pallet* pal_ptr);
+array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd, int mass, double ratio, pallet* pal_ptr, int index, int rotate);
 
 /*
 @brief после того как мы посчитали очки для каждой коробки, мы этой функцией выбираем лучшую
@@ -72,7 +75,7 @@ void place_box(pallet* pallet_pointer, zone* zone_pointer, box* box_pointer);
 bool can_place_box_in_zone(zone* zone, int w, int h, int d);
 
 // функция которая проверяет можно ли разместить коробку в зоне с учетом карты высот паллета
-bool can_place_box_height_map(pallet* pal_ptr, zone* zone, int bw, int bd, int& out_x, int& out_z, double& ratio);
+bool can_place_box_height(pallet* pal_ptr, zone* zone, int bw, int bd, int& out_x, int& out_z, double& ratio);
 
 void celebrate(void);
 
@@ -93,5 +96,9 @@ void create_ascii_layers_zones(pallet* given_pal_ptr); // аски рендер 
 void create_ascii_layers_m(pallet* given_pal_ptr); // аски рендер MEB-боксов паллета
 
 void record_pallet_details(pallet* pallet_ptr, vector<box*> fucking_die_already); // записываем детали паллета в лог файл
+
+// Графический интерфейс #####################
+struct GUIState; // Forward declaration
+bool show_input_dialog(GUIState* state); // Диалог ввода параметров коробок
 
 #endif

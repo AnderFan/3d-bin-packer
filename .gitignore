@@ -1,0 +1,54 @@
+# CMake / Build artifacts
+build/
+cmake-build-debug/
+cmake-build-release/
+CMakeCache.txt
+CMakeFiles/
+
+# Executables и object files
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+*.app
+*.bin
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.user
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.vim
+
+# Compiler output
+*.obj
+*.lib
+*.exp
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Dependencies (если устанавливаете локально)
+lib/
+include/
+vcpkg_installed/
+
+# OS files
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

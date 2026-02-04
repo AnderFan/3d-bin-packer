@@ -1,14 +1,7 @@
-﻿  ascii_render.cpp
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\format(42): warning STL4038: The contents of <format> are available only with C++20 or later.
-C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\ascii_render.cpp(370,7): warning C4101: 'no_box': unreferenced local variable
-  data.h
-  PalletPlacement.cpp
+﻿  data.h
   pal_box.cpp
-  pal_meb.cpp
-C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\pal_meb.cpp(13,20): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\PalletPlacement\pal_meb.cpp(14,19): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-  pal_zone.cpp
   Generating Code...
-  PalletPlacement.vcxproj -> C:\Users\anf\Desktop\palletPlacement\3d-bin-packer\x64\Debug\PalletPlacement.exe
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\pal_box.cpp(484,1): warning C4715: 'assess_box_in_zone': not all control paths return a value
+  PalletPlacement.vcxproj -> C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\x64\Debug\PalletPlacement.exe
   "pwsh.exe" не является внутренней или внешней
   командой, исполняемой программой или пакетным файлом.
