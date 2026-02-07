@@ -3,7 +3,7 @@
 #include <algorithm>
 using namespace std;
 
-void sort_boxes() {
+void sort_boxes(vector<box*> total_boxes) {
     std::sort(total_boxes.begin(), total_boxes.end(), [](const box* a, const box* b) {
         int vol_a = a->xyz_size[0][0] * a->xyz_size[0][1] * a->xyz_size[0][2];
         int vol_b = b->xyz_size[0][0] * b->xyz_size[0][1] * b->xyz_size[0][2];
@@ -16,8 +16,9 @@ void sort_boxes() {
         return a->mass > b->mass;
         });
 }
-void pallet_handle(pallet* pal_ptr) {
-    sort_boxes();
+
+void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
+    sort_boxes(total_boxes);
 
     cout << "Всего коробок: " << total_boxes.size() << endl;
     zone* pal_zone_ptr;
@@ -30,10 +31,10 @@ void pallet_handle(pallet* pal_ptr) {
     int failed_iterations = 0;
     const int MAX_FAILED = 100; // Если 100 итераций подряд не получилось разместить - выходим
 
-    while (is_placement_possible(pal_ptr)) {
+    while (is_placement_possible(pal_ptr, total_boxes)) {
         iterations++;
 
-        check_meb(pal_ptr);
+        check_meb(pal_ptr, total_boxes);
 
         if (pal_ptr->zone_vector.empty()) {
             cout << "Нет доступных зон для размещения\n";
@@ -53,7 +54,7 @@ void pallet_handle(pallet* pal_ptr) {
             continue;
         }
 
-        placed_box_ptr = box_placement_handle(pal_ptr, pal_zone_ptr);
+        placed_box_ptr = box_placement_handle(pal_ptr, pal_zone_ptr, total_boxes);
 
         if (placed_box_ptr) {
             celebrate();

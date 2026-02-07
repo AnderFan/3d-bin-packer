@@ -1,7 +1,5 @@
-﻿  data.h
-  pal_box.cpp
-  Generating Code...
-C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\pal_box.cpp(484,1): warning C4715: 'assess_box_in_zone': not all control paths return a value
+﻿  graphics.cpp
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\graphics.cpp(370,37): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
   PalletPlacement.vcxproj -> C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\x64\Debug\PalletPlacement.exe
   "pwsh.exe" не является внутренней или внешней
   командой, исполняемой программой или пакетным файлом.

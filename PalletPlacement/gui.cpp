@@ -298,6 +298,7 @@ HWND CreateInputDialog(HINSTANCE hInstance, HWND hwndParent, GUIState* state) {
         hwndDlg, NULL, hInstance, NULL);
     yPos += 25;
 
+
     CreateWindowW(L"STATIC", utf8_to_wstring("Ширина (мм):").c_str(),
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         xLabel, yPos, labelWidth, 20,
@@ -364,41 +365,43 @@ HWND CreateInputDialog(HINSTANCE hInstance, HWND hwndParent, GUIState* state) {
         xLabel + 150, yPos, 140, 30,
         hwndDlg, (HMENU)IDC_CLEAR_BUTTON, hInstance, NULL);
 
-    yPos += 40;
+
+    int y2pos = 20;
+	int x2Label = xLabel + 440;
 
     CreateWindowW(L"STATIC", utf8_to_wstring("Добавленные типы коробок:").c_str(),
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        xLabel, yPos, 300, 20,
+        x2Label, y2pos, 300, 20,
         hwndDlg, NULL, hInstance, NULL);
-    yPos += 20;
+    y2pos += 20;
 
     CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", NULL,
         WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | LBS_NOTIFY,
-        xLabel, yPos, 440, 130,
+        x2Label, y2pos, 440, 130,
         hwndDlg, (HMENU)IDC_BOX_LIST, hInstance, NULL);
-    yPos += 125;
+    y2pos += 125;
 
     CreateWindowW(L"STATIC", utf8_to_wstring("Установка:").c_str(),
         WS_CHILD | WS_VISIBLE | SS_LEFT,
-        xLabel, yPos, 300, 20,
+        x2Label, y2pos, 300, 20,
         hwndDlg, NULL, hInstance, NULL);
-    yPos += 25;
+    y2pos += 25;
 
     CreateWindowW(L"BUTTON", utf8_to_wstring("По центру масс").c_str(),
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-        xLabel, yPos, 200, 20,
+        x2Label, y2pos, 200, 20,
         hwndDlg, (HMENU)IDC_SET_CENTER_MASS, hInstance, NULL);
 
     CreateWindowW(L"BUTTON", utf8_to_wstring("По максимальному объёму").c_str(),
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-        xLabel + 200 + 30, yPos, 200, 20,
+        x2Label + 200 + 30, y2pos, 200, 20,
         hwndDlg, (HMENU)IDC_SET_MAX_VOLUME, hInstance, NULL);
 
-    yPos += lineHeight;
+    y2pos += lineHeight;
 
     CreateWindowW(L"BUTTON", utf8_to_wstring("Запустить расчет укладки").c_str(),
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_DEFPUSHBUTTON,
-        xLabel, yPos, 440, 40,
+        x2Label, yPos, 440, 40,
         hwndDlg, (HMENU)IDC_START_BUTTON, hInstance, NULL);
 
     return hwndDlg;

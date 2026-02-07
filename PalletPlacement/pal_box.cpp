@@ -25,7 +25,7 @@ void height_map_init(pallet* pal_ptr) {
 }
 
 
-bool is_placement_possible(pallet* pallet_ptr) {
+bool is_placement_possible(pallet* pallet_ptr, vector<box*> total_boxes) {
 	DEBUG_LOG_ENDL("\n=== ПРОВЕРКА ВОЗМОЖНОСТИ РАЗМЕЩЕНИЯ ===");
 	DEBUG_LOG_ENDL("Коробок в total_boxes: " << total_boxes.size());
 	DEBUG_LOG_ENDL("Зон доступно: " << pallet_ptr->zone_vector.size());
@@ -65,7 +65,7 @@ void celebrate() {
 }
 
 
-box* select_best_box() {
+box* select_best_box(vector<box*> total_boxes) {
 	box* best_box_ptr = nullptr;
 	array<int, SCORES_NUM> best = { INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX }; // тут храним лучшую коробку
 	for (int i = 0; i < total_boxes.size(); i++) { // проходимся по коробкам 
@@ -83,7 +83,7 @@ box* select_best_box() {
 	return best_box_ptr;
 }
 
-void place_box(pallet* pal_ptr, zone* zone_ptr, box* box_ptr) {
+void place_box(pallet* pal_ptr, zone* zone_ptr, box* box_ptr, vector<box*> total_boxes) {
 	DEBUG_LOG_ENDL("\n--- РАЗМЕЩЕНИЕ КОРОБКИ ---");
 	DEBUG_LOG_ENDL("Позиция: (" << box_ptr->temp_xz[0] << ", " << zone_ptr->xyz[1] << ", " << box_ptr->temp_xz[1] << ")");
 	
@@ -128,52 +128,6 @@ void place_box(pallet* pal_ptr, zone* zone_ptr, box* box_ptr) {
 	
 }
 
-//void place_box(pallet* pal_ptr, zone* zone_ptr, box* box_ptr) { // размещаем коробку в зону
-//	box_ptr->xyz[0] = box_ptr->temp_xz[0];
-//	box_ptr->xyz[1] = zone_ptr->xyz[1];
-//	box_ptr->xyz[2] = box_ptr->temp_xz[1];
-//
-//	if (box_ptr->xyz[0] < 0 || box_ptr->xyz[1] < 0 || box_ptr->xyz[2] < 0) {
-//		std::cout << "ERROR: Placing box at negative coords: ("
-//			<< box_ptr->xyz[0] << ", "
-//			<< box_ptr->xyz[1] << ", "
-//			<< box_ptr->xyz[2] << ")\n";
-//		std::cout << "  temp_xz: (" << box_ptr->temp_xz[0] << ", " << box_ptr->temp_xz[1] << ")\n";
-//		std::cout << "  zone: (" << zone_ptr->xyz[0] << ", " << zone_ptr->xyz[1] << ", " << zone_ptr->xyz[2] << ")\n";
-//	}
-//
-//	pal_ptr->placed_boxes.push_back(box_ptr); // добавляем коробку в паллет
-//
-//	
-//	if (pal_ptr->max_height_box == INT_MAX) {
-//		pal_ptr->max_height_box = pal_ptr->placed_boxes[0]->xyz_size[pal_ptr->placed_boxes[0]->rotate][1];
-//	}
-//	pal_ptr->max_height_box = std::max(pal_ptr->max_height_box, box_ptr->xyz[1] + box_ptr->xyz_size[box_ptr->rotate][1]);
-//	// обновляем макс высоту коробки на паллете
-//	
-//	total_boxes.erase(
-//		remove(total_boxes.begin(), total_boxes.end(), box_ptr),
-//		total_boxes.end()
-//	); // удаляем коробку из списка доступных коробок
-//	
-//	box_ptr->placed = true; // отмечаем что коробка размещена
-//
-//	cout << "Максимальная высота коробок на паллете теперь: " << pal_ptr->max_height_box << endl;
-//	
-//	pal_ptr->placed_since_meb++; // увеличиваем счетчик успешных укладок с последней дефрагации
-//	pal_ptr->was_defrag = false;
-//
-//
-//	for (int x = box_ptr->xyz[0]; x < box_ptr->xyz[0] + box_ptr->xyz_size[box_ptr->rotate][0]; x++) {
-//		for (int z = box_ptr->xyz[2]; z < box_ptr->xyz[2] + box_ptr->xyz_size[box_ptr->rotate][2]; z++) {
-//			pal_ptr->height_map[x][z] = std::max(pal_ptr->height_map[x][z], box_ptr->xyz[1] + box_ptr->xyz_size[box_ptr->rotate][1]);
-//		}
-//	} // обновляем карту высот паллета
-//
-//
-//	center_mass_calculate(pal_ptr, box_ptr); // обновляем центр масс паллета
-//
-//}
 
 CenterMassResult simulate_center_mass(const pallet* pal_ptr, int box_mass, double cx_box, double cy_box, double cz_box) {
 	CenterMassResult res{};
@@ -234,7 +188,7 @@ void center_mass_calculate(pallet* pal_ptr, box* box_ptr) {
 		<< pal_ptr->xyz_mass_centre[2] << ") с массой " << pal_ptr->total_mass);
 }
 
-box* box_placement_handle(pallet* pal_ptr, zone* zone_ptr) {
+box* box_placement_handle(pallet* pal_ptr, zone* zone_ptr, vector<box*> total_boxes) {
 	DEBUG_LOG_ENDL("\n========== BOX_PLACEMENT_HANDLE ==========");
 	DEBUG_LOG_ENDL("Целевая зона: pos=(" << zone_ptr->xyz[0] << "," << zone_ptr->xyz[1] << "," << zone_ptr->xyz[2] 
 		 << ") size=(" << zone_ptr->xyz_size[0] << "x" << zone_ptr->xyz_size[1] << "x" << zone_ptr->xyz_size[2] << ")");
@@ -339,7 +293,7 @@ box* box_placement_handle(pallet* pal_ptr, zone* zone_ptr) {
 			}
 
 			auto res = assess_box_in_zone(zone_ptr, out_x, zone_ptr->xyz[1], out_z, w, h, d,
-				box_ptr->mass, ratio, pal_ptr, i, j);
+				box_ptr->mass, ratio, pal_ptr, i, j, total_boxes);
 
 #ifdef DEBUG_PALLET
 			#pragma omp critical(debug_print)
@@ -395,11 +349,11 @@ box* box_placement_handle(pallet* pal_ptr, zone* zone_ptr) {
 		 << cur_box_ptr->xyz_size[cur_box_ptr->rotate][1] << "x" 
 		 << cur_box_ptr->xyz_size[cur_box_ptr->rotate][2] << ") rot=" << cur_box_ptr->rotate);
 
-	place_box(pal_ptr, zone_ptr, cur_box_ptr);
+	place_box(pal_ptr, zone_ptr, cur_box_ptr, total_boxes);
 	return cur_box_ptr;
 }
 
-int get_max_remaining_box_height() {
+int get_max_remaining_box_height(vector<box*> total_boxes) {
 	int max_h = 0;
 	for (auto* b : total_boxes) {
 		if (b->placed) continue;
@@ -409,7 +363,7 @@ int get_max_remaining_box_height() {
 	}
 	return max_h;
 }
-array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd, int mass, double ratio, pallet* pal_ptr, int index, int rotate) {
+array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd, int mass, double ratio, pallet* pal_ptr, int index, int rotate, vector<box*> total_boxes) {
 
 	int com_y_score, com_center_score;
 	if (pal_ptr->center_mass_or_max_volume == 0) { // Если укладка по центру масс
@@ -466,7 +420,7 @@ array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz
 	int long_side = (std::max)(w_zone - bw, d_zone - bd);
 	int short_side = (std::min)(w_zone - bw, d_zone - bd);
 
-	int max_remaining_box_height = get_max_remaining_box_height();
+	int max_remaining_box_height = get_max_remaining_box_height(total_boxes);
 	//if (max_remaining_box_height > bh && (pal_ptr->xyz_size[1] - (by + bh)) < max_remaining_box_height) {
 	//	// если после этой укладки не останется места для самой высокой оставшейся коробки
 	//	height_diff += 10000; // штрафуем сильно

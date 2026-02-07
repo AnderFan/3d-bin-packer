@@ -104,7 +104,7 @@ struct CenterMassResult {
 };
 
 
- extern vector<box*> total_boxes; // Все коробки которые возомжно разместить
+ //extern vector<box*> total_boxes; // Все коробки которые возомжно разместить
 
  extern std::ofstream debug_log;
 

@@ -4,9 +4,8 @@
 
 #include "data.h"
 
-// Main pallet handling function
-void pallet_handle(pallet* pal_ptr); // Main algorithm for placing boxes on pallet
 
+void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes); 
 
 
 // Зоновые функции #####################
@@ -35,7 +34,7 @@ bool try_merge_once(std::vector<zone*>& zs); // пытаемся слить хо
 
 std::vector<zone*> build_meb_zones(pallet* pal); // Строим новый список зон (zone*) из MEB-боксов на основании УЖЕ уложенных коробок.
 
-void check_meb(pallet* pal_ptr); // проверяем нужно ли делать дефрагментацию зон
+void check_meb(pallet* pal_ptr, vector<box*> total_boxes); // проверяем нужно ли делать дефрагментацию зон
 
 void meb_gen(pallet* pal_ptr); 
 
@@ -44,10 +43,10 @@ void sort_boxes_decreasing();
 void height_map_init(pallet* pal_ptr); // инициализация карты высот паллета
 
 // Возможно ли вовсе разместить хоть что то на этом паллете
-bool is_placement_possible(pallet* pallet_pointer);
+bool is_placement_possible(pallet* pallet_pointer, vector<box*> total_boxes);
 
 //найти и разместить коробку для данной зоны, возворащает коробку которую разместило, или же НУЛЛ если хуйня история
-box* box_placement_handle(pallet* pallet_pointer, zone* zone_to_handle);
+box* box_placement_handle(pallet* pallet_pointer, zone* zone_to_handle, vector<box*> total_boxes);
 
 // проверка на коллизию коробки с уже размещенными коробками
 bool fits_without_collision(int bx, int by, int bz, int w, int h, int d, const vector<box*>& placed);
@@ -58,18 +57,19 @@ CenterMassResult simulate_center_mass(const pallet* pal_ptr, int box_mass, doubl
 void center_mass_calculate(pallet* pal_ptr, box* box_ptr); // расчет центра масс паллета после добавления коробки
 
 // эта функия считает кол-во очков для данной коробки И ЛОЖИТ ЭТИ ОЧКИ НАЗАД В КОРОБКУ
-array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd, int mass, double ratio, pallet* pal_ptr, int index, int rotate);
+array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd,
+										int mass, double ratio, pallet* pal_ptr, int index, int rotate, vector<box*> total_boxes);
 
 /*
 @brief после того как мы посчитали очки для каждой коробки, мы этой функцией выбираем лучшую
 @return возвразащает указатель лучшей коробки
 */
-box* select_best_box();
+box* select_best_box(vector<box*> total_boxes);
 
 /* размещаем данную коробку в данную зону
 	@param pal_pointer нужен шоб добавить в сам паллет коробку которую разместили
 */
-void place_box(pallet* pallet_pointer, zone* zone_pointer, box* box_pointer);
+void place_box(pallet* pallet_pointer, zone* zone_pointer, box* box_pointer, vector<box*> total_boxes);
 
 // функция которая проверяет можно ли физически разместить данную коробку в данной зоне
 bool can_place_box_in_zone(zone* zone, int w, int h, int d);
@@ -87,7 +87,7 @@ void create_ascii_layers(pallet* pallet_ptr); // Аски рендер слое�
 
 void assign_index_to_boxes(pallet* pallet_ptr);// присваиваем индекс коробкам для аски рендера
 
-bool merge_any_pair_XYZ(pallet* pal); // попытка чё-нибудь слить, что бы не расстраиваться
+bool merge_any_pair_XYZ(pallet* pal); // попытка чё-nибудь слить, что бы не расстраиваться
 
 void record_pallet_details(pallet* pallet_ptr, vector<box*> fucking_die_already); // записываем детали паллета в лог файл
 
@@ -96,9 +96,5 @@ void create_ascii_layers_zones(pallet* given_pal_ptr); // аски рендер 
 void create_ascii_layers_m(pallet* given_pal_ptr); // аски рендер MEB-боксов паллета
 
 void record_pallet_details(pallet* pallet_ptr, vector<box*> fucking_die_already); // записываем детали паллета в лог файл
-
-// Графический интерфейс #####################
-struct GUIState; // Forward declaration
-bool show_input_dialog(GUIState* state); // Диалог ввода параметров коробок
 
 #endif

@@ -13,7 +13,7 @@ using namespace std;
 #include <string>
 #include <algorithm>
 
-vector<box*> total_boxes;
+
 vector<vector<box*> > grouped_boxes;
 int main() {
     SetConsoleOutputCP(CP_UTF8);

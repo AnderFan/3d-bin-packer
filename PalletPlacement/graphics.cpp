@@ -4,17 +4,72 @@
 #include "utils.h"
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
 #include <cmath>
 #include <string>
 #include <sstream>
 
+#pragma comment(lib, "comctl32.lib")
+
 static HWND g_hWnd = NULL;
-static HWND g_hRestartButton = NULL;
+static HWND g_hTabControl = NULL;
+static HWND g_hCalcButton = NULL;
 static HDC g_hDC = NULL;
 static bool g_running = true;
-static bool g_needRestart = false;
+static int g_currentTab = 0; // 0 - ввод, 1 - визуализация, 2 визуализация
 
-#define IDC_RESTART_BUTTON 2001
+// ID элементов управления
+#define IDC_TAB_CONTROL 2000
+#define IDC_CALC_BUTTON 2001
+
+// ID для вкладки ввода данных
+#define IDC_P_WIDTH_EDIT    3001
+#define IDC_P_HEIGHT_EDIT   3002
+#define IDC_P_DEPTH_EDIT    3003
+#define IDC_P_MAX_MASS_EDIT 3004
+#define IDC_WIDTH_EDIT      3005
+#define IDC_HEIGHT_EDIT     3006
+#define IDC_DEPTH_EDIT      3007
+#define IDC_QUANTITY_EDIT   3008
+#define IDC_WEIGHT_EDIT     3009
+#define IDC_FULL_ROTATE_CHECK 3010
+#define IDC_SET_CENTER_MASS 3011
+#define IDC_SET_MAX_VOLUME  3012
+#define IDC_ADD_BUTTON      3013
+#define IDC_CLEAR_BUTTON    3014
+#define IDC_BOX_LIST        3015
+
+// Дескрипторы элементов управления для вкладки ввода
+static HWND g_hPWidthEdit = NULL;
+static HWND g_hPHeightEdit = NULL;
+static HWND g_hPDepthEdit = NULL;
+static HWND g_hPMaxMassEdit = NULL;
+static HWND g_hWidthEdit = NULL;
+static HWND g_hHeightEdit = NULL;
+static HWND g_hDepthEdit = NULL;
+static HWND g_hQuantityEdit = NULL;
+static HWND g_hWeightEdit = NULL;
+static HWND g_hFullRotateCheck = NULL;
+static HWND g_hCenterMassCheck = NULL;
+static HWND g_hMaxVolumeCheck = NULL;
+static HWND g_hAddButton = NULL;
+static HWND g_hClearButton = NULL;
+static HWND g_hBoxList = NULL;
+
+// Статические метки
+static HWND g_hPalletLabel = NULL;
+static HWND g_hPWidthLabel = NULL;
+static HWND g_hPHeightLabel = NULL;
+static HWND g_hPDepthLabel = NULL;
+static HWND g_hPMaxMassLabel = NULL;
+static HWND g_hBoxesLabel = NULL;
+static HWND g_hWidthLabel = NULL;
+static HWND g_hHeightLabel = NULL;
+static HWND g_hDepthLabel = NULL;
+static HWND g_hQuantityLabel = NULL;
+static HWND g_hWeightLabel = NULL;
+static HWND g_hMethodLabel = NULL;
+static HWND g_hBoxListLabel = NULL;
 
 struct Point3D {
     float x, y, z;
@@ -29,137 +84,253 @@ static GUIState g_state;
 static int g_windowWidth = 1200;
 static int g_windowHeight = 720;
 
+void show_input_controls(bool show) {
+    int cmd = show ? SW_SHOW : SW_HIDE;
+    
+    ShowWindow(g_hPalletLabel, cmd);
+    ShowWindow(g_hPWidthLabel, cmd);
+    ShowWindow(g_hPWidthEdit, cmd);
+    ShowWindow(g_hPHeightLabel, cmd);
+    ShowWindow(g_hPHeightEdit, cmd);
+    ShowWindow(g_hPDepthLabel, cmd);
+    ShowWindow(g_hPDepthEdit, cmd);
+    ShowWindow(g_hPMaxMassLabel, cmd);
+    ShowWindow(g_hPMaxMassEdit, cmd);
+    
+    ShowWindow(g_hBoxesLabel, cmd);
+    ShowWindow(g_hWidthLabel, cmd);
+    ShowWindow(g_hWidthEdit, cmd);
+    ShowWindow(g_hHeightLabel, cmd);
+    ShowWindow(g_hHeightEdit, cmd);
+    ShowWindow(g_hDepthLabel, cmd);
+    ShowWindow(g_hDepthEdit, cmd);
+    ShowWindow(g_hQuantityLabel, cmd);
+    ShowWindow(g_hQuantityEdit, cmd);
+    ShowWindow(g_hWeightLabel, cmd);
+    ShowWindow(g_hWeightEdit, cmd);
+    ShowWindow(g_hFullRotateCheck, cmd);
+    
+    ShowWindow(g_hAddButton, cmd);
+    ShowWindow(g_hClearButton, cmd);
+    ShowWindow(g_hBoxListLabel, cmd);
+    ShowWindow(g_hBoxList, cmd);
+    
+    ShowWindow(g_hMethodLabel, cmd);
+    ShowWindow(g_hCenterMassCheck, cmd);
+    ShowWindow(g_hMaxVolumeCheck, cmd);
+	ShowWindow(g_hCalcButton, cmd);
+}
+
 void reset_state_for_new_packing() {
-    // Очищаем старые коробки из total_boxes
-    for (auto* b : total_boxes) {
-        delete b;
-    }
-    total_boxes.clear();
 
-    // Очищаем текущий паллет
-    if (g_state.current_pallet) {
-        // Удаляем зоны
-        for (auto* z : g_state.current_pallet->zone_vector) {
-            delete z;
+    for (auto* pal : g_state.current_pallet) {
+        if (pal) {
+            for (auto* box_ptr : pal->placed_boxes) {
+                delete box_ptr;
+            }
+            pal->placed_boxes.clear();
+
+            // Удаляем зоны
+            for (auto* z : pal->zone_vector) {
+                delete z;
+            }
+            pal->zone_vector.clear();
+
+            for (auto* z : pal->zone_dead_vector) {
+                delete z;
+            }
+            pal->zone_dead_vector.clear();
+
+            pal->placed_boxes.clear();
+
+            delete pal;
+            g_state.current_pallet = {};
         }
-        g_state.current_pallet->zone_vector.clear();
+	}
+    
 
-        for (auto* z : g_state.current_pallet->zone_dead_vector) {
-            delete z;
-        }
-        g_state.current_pallet->zone_dead_vector.clear();
-
-        // Коробки уже удалены выше (они были в total_boxes)
-        g_state.current_pallet->placed_boxes.clear();
-
-        delete g_state.current_pallet;
-        g_state.current_pallet = nullptr;
-    }
-
-    // Сброс состояния GUI
-    //g_state.box_types.clear();
     g_state.calculation_done = false;
-    g_state.show_input_window = true;
-    //g_state.pallet_width = PALLET_X;
-    //g_state.pallet_height = PALLET_Y;
-    //g_state.pallet_depth = PALLET_Z;
-    //g_state.pallet_max_mass = PALLET_MAX_MASS;  // Сброс максимального веса
     g_state.use_center_mass = false;
-	g_state.use_max_volume = false;
+    g_state.use_max_volume = false;
+}
+
+void calculate_packing() {
+    vector<box*> total_boxes;
+
+    if (g_state.box_types.empty()) {
+        MessageBoxW(g_hWnd, L"Добавьте хотя бы один тип коробок!", L"Ошибка", MB_OK | MB_ICONWARNING);
+        return;
+    }
+
+    // Получаем параметры паллеты
+    BOOL success;
+    int pW = GetDlgItemInt(g_hWnd, IDC_P_WIDTH_EDIT, &success, FALSE);
+    if (!success || pW <= 0) {
+        MessageBoxW(g_hWnd, L"Некорректная ширина паллеты", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+    int pH = GetDlgItemInt(g_hWnd, IDC_P_HEIGHT_EDIT, &success, FALSE);
+    if (!success || pH <= 0) {
+        MessageBoxW(g_hWnd, L"Некорректная высота паллеты", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+    int pD = GetDlgItemInt(g_hWnd, IDC_P_DEPTH_EDIT, &success, FALSE);
+    if (!success || pD <= 0) {
+        MessageBoxW(g_hWnd, L"Некорректная глубина паллеты", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+    int pMaxMass = GetDlgItemInt(g_hWnd, IDC_P_MAX_MASS_EDIT, &success, FALSE);
+    if (!success || pMaxMass <= 0) {
+        MessageBoxW(g_hWnd, L"Некорректный максимальный вес паллеты", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    bool center_mass_checked = IsDlgButtonChecked(g_hWnd, IDC_SET_CENTER_MASS) == BST_CHECKED;
+    bool max_volume_checked = IsDlgButtonChecked(g_hWnd, IDC_SET_MAX_VOLUME) == BST_CHECKED;
+    
+    if (!center_mass_checked && !max_volume_checked) {
+        MessageBoxW(g_hWnd, L"Выберите хотя бы один метод укладки", L"Ошибка", MB_OK | MB_ICONWARNING);
+        return;
+    }
+
+    g_state.pallet_width = pW;
+    g_state.pallet_height = pH;
+    g_state.pallet_depth = pD;
+    g_state.pallet_max_mass = pMaxMass;
+    g_state.use_center_mass = center_mass_checked;
+    g_state.use_max_volume = max_volume_checked;
+
+    update_tabs();
+
+    //// Создаём коробки из введённых типов
+    //int box_len = 0;
+    //for (const auto& box_type : g_state.box_types) {
+    //    box_len += box_type.Quantity;
+    //}
+    //total_boxes.reserve(box_len);
+
+    //for (const auto& box_type : g_state.box_types) {
+    //    for (int i = 0; i < box_type.Quantity; ++i) {
+    //        box* new_box = new box();
+    //        new_box->xyz_size[0][0] = box_type.width;
+    //        new_box->xyz_size[0][1] = box_type.height;
+    //        new_box->xyz_size[0][2] = box_type.depth;
+
+    //        new_box->xyz_size[1][2] = box_type.width;
+    //        new_box->xyz_size[1][1] = box_type.height;
+    //        new_box->xyz_size[1][0] = box_type.depth;
+
+    //        new_box->xyz_size[2][0] = box_type.width;
+    //        new_box->xyz_size[2][2] = box_type.height;
+    //        new_box->xyz_size[2][1] = box_type.depth;
+
+    //        new_box->mass = box_type.weight;
+    //        new_box->placed = false;
+    //        new_box->full_rotateble = box_type.full_rotateble;
+
+    //        total_boxes.push_back(new_box);
+    //    }
+    //}
+    auto create_box_copies = [&]() -> vector<box*> {
+        vector<box*> boxes;
+        int box_len = 0;
+        for (const auto& box_type : g_state.box_types) {
+            box_len += box_type.Quantity;
+        }
+        boxes.reserve(box_len);
+
+        for (const auto& box_type : g_state.box_types) {
+            for (int i = 0; i < box_type.Quantity; ++i) {
+                box* new_box = new box();
+                new_box->xyz_size[0][0] = box_type.width;
+                new_box->xyz_size[0][1] = box_type.height;
+                new_box->xyz_size[0][2] = box_type.depth;
+
+                new_box->xyz_size[1][2] = box_type.width;
+                new_box->xyz_size[1][1] = box_type.height;
+                new_box->xyz_size[1][0] = box_type.depth;
+
+                new_box->xyz_size[2][0] = box_type.width;
+                new_box->xyz_size[2][2] = box_type.height;
+                new_box->xyz_size[2][1] = box_type.depth;
+
+                new_box->mass = box_type.weight;
+                new_box->placed = false;
+                new_box->full_rotateble = box_type.full_rotateble;
+
+                boxes.push_back(new_box);
+            }
+        }
+        return boxes;
+        };
+    
+    if (g_state.use_center_mass) {
+        cout << "Метод укладки: Центр масс\n";
+		int center_mass_or_max_volume = 0;
+        g_state.current_pallet[0] = (new pallet(
+            g_state.pallet_width,
+            g_state.pallet_height,
+            g_state.pallet_depth,
+            g_state.pallet_max_mass,
+            center_mass_or_max_volume
+        ));
+    }
+    if (g_state.use_max_volume) {
+        cout << "Метод укладки: Максимальный объем\n";
+        int center_mass_or_max_volume = 1;
+        g_state.current_pallet[1] = (new pallet(
+            g_state.pallet_width,
+            g_state.pallet_height,
+            g_state.pallet_depth,
+            g_state.pallet_max_mass,
+            center_mass_or_max_volume
+        ));
+    }
+
+
+
+    for (auto* pal : g_state.current_pallet) {
+        vector<box*> boxs = total_boxes;
+        if (pal == nullptr) {
+            continue;
+        }
+		int index = 0;
+
+        vector<box*> total_boxes = create_box_copies();
+
+        g_camera.targetX = pal->xyz_size[0] / 2.0f;
+        g_camera.targetY = pal->xyz_size[1] / 2.0f;
+        g_camera.targetZ = pal->xyz_size[2] / 2.0f;
+        g_camera.distance = pal->xyz_size[0] * 2.0f;
+
+        // Запускаем расчёт
+        cout << "\nЗапуск расчёта укладки...\n";
+        cout << "Макс. вес паллеты: " << pal->max_mass << " кг\n";
+        pallet_handle(pal, total_boxes);
+        cout << "Расчёт завершён! Размещено коробок: " << pal->placed_boxes.size() << " для " << index++ << "паллеты." << endl;
+        // Освобождаем память
+        for (auto* box_ptr : total_boxes) {
+            if (!box_ptr->placed) {
+                delete box_ptr;
+            }
+        }
+    }
+    g_state.calculation_done = true;
+
+
+    // Переключаемся на вкладку визуализации
+    g_currentTab = 1;
+    TabCtrl_SetCurSel(g_hTabControl, g_currentTab);
+    show_input_controls(false);
+    
+    InvalidateRect(g_hWnd, NULL, TRUE);
 }
 
 void start_new_packing() {
     reset_state_for_new_packing();
-
-    // Скрываем основное окно на время ввода
-    ShowWindow(g_hWnd, SW_HIDE);
-
-    // Показываем диалог ввода
-    if (!show_input_dialog(&g_state)) {
-        cout << "Ввод отменён или произошла ошибка.\n";
-        ShowWindow(g_hWnd, SW_SHOW);
-        return;
-    }
-
-    if (g_state.box_types.empty()) {
-        cout << "Коробки не добавлены.\n";
-        ShowWindow(g_hWnd, SW_SHOW);
-        return;
-    }
-
-    // Создаём коробки из введённых типов
-    int box_len = 0;
-    for (const auto& box_type : g_state.box_types) {
-        box_len += box_type.Quantity;
-    }
-    total_boxes.reserve(box_len);
-
-    for (const auto& box_type : g_state.box_types) {
-        for (int i = 0; i < box_type.Quantity; ++i) {
-            box* new_box = new box();
-            new_box->xyz_size[0][0] = box_type.width;
-            new_box->xyz_size[0][1] = box_type.height;
-            new_box->xyz_size[0][2] = box_type.depth;
-
-            new_box->xyz_size[1][2] = box_type.width;
-            new_box->xyz_size[1][1] = box_type.height;
-            new_box->xyz_size[1][0] = box_type.depth;
-
-            new_box->xyz_size[2][0] = box_type.width;
-            new_box->xyz_size[2][2] = box_type.height;
-            new_box->xyz_size[2][1] = box_type.depth;
-
-            new_box->mass = box_type.weight;
-            new_box->placed = false;
-            new_box->full_rotateble = box_type.full_rotateble;
-
-            total_boxes.push_back(new_box);
-        }
-    }
-
-    if (g_state.use_center_mass) {
-        cout << "Метод укладки: Центр масс\n";
-		int center_mass_or_max_volume = 0; // 0 - центр масс
-        g_state.current_pallet = new pallet(
-            g_state.pallet_width,
-            g_state.pallet_height,
-            g_state.pallet_depth,
-            g_state.pallet_max_mass,
-            center_mass_or_max_volume
-        );
-    }
-    if (g_state.use_max_volume) {
-        cout << "Метод укладки: Максимальный объем\n";
-        int center_mass_or_max_volume = 1; // 1 - объем
-        g_state.current_pallet = new pallet(
-            g_state.pallet_width,
-            g_state.pallet_height,
-            g_state.pallet_depth,
-            g_state.pallet_max_mass,
-            center_mass_or_max_volume
-        );
-	}
-
-
-
-    // Обновляем камеру
-    g_camera.targetX = g_state.current_pallet->xyz_size[0] / 2.0f;
-    g_camera.targetY = g_state.current_pallet->xyz_size[1] / 2.0f;
-    g_camera.targetZ = g_state.current_pallet->xyz_size[2] / 2.0f;
-    g_camera.distance = g_state.current_pallet->xyz_size[0] * 2.0f;
-
-    // Показываем окно обратно
-    ShowWindow(g_hWnd, SW_SHOW);
-
-    // Запускаем расчёт
-    cout << "\nЗапуск расчёта укладки...\n";
-    cout << "Макс. вес паллеты: " << g_state.current_pallet->max_mass << " кг\n";
-    pallet_handle(g_state.current_pallet);
-
-    g_state.calculation_done = true;
-    cout << "Расчёт завершён! Размещено коробок: " << g_state.current_pallet->placed_boxes.size() << endl;
-
-    // Перерисовываем окно
+    
+    //SendMessage(g_hBoxList, LB_RESETCONTENT, 0, 0);
+    
     InvalidateRect(g_hWnd, NULL, TRUE);
 }
 
@@ -250,7 +421,6 @@ void draw_box_3d(HDC hdc, box* box_ptr, int index, Camera* cam) {
     COLORREF color = RGB(red, green, blue);
 
     fill_rect_3d(hdc, x, y, z, x + w, y, z, x + w, y + h, z, x, y + h, z, cam, color);
-
     fill_rect_3d(hdc, x, y, z + d, x + w, y, z + d, x + w, y + h, z + d, x, y + h, z + d, cam, color);
 
     COLORREF colorTop = RGB(min(255, red + 30), min(255, green + 30), min(255, blue + 30));
@@ -260,7 +430,6 @@ void draw_box_3d(HDC hdc, box* box_ptr, int index, Camera* cam) {
     fill_rect_3d(hdc, x, y, z, x + w, y, z, x + w, y, z + d, x, y, z + d, cam, colorBot);
 
     fill_rect_3d(hdc, x, y, z, x, y + h, z, x, y + h, z + d, x, y, z + d, cam, color);
-
     fill_rect_3d(hdc, x + w, y, z, x + w, y + h, z, x + w, y + h, z + d, x + w, y, z + d, cam, color);
 }
 
@@ -280,13 +449,11 @@ void draw_pallet_base(HDC hdc, Camera* cam, pallet* pal_ptr) {
         px, 0, pz, px, -0.5f, pz, cam, palletColor);
 }
 
-
 void draw_grid(HDC hdc, Camera* cam, pallet* pal_ptr) {
     COLORREF gridColor = RGB(200, 200, 200);
 
     int px = pal_ptr->xyz_size[0];
     int pz = pal_ptr->xyz_size[2];
-
 
     for (int i = 0; i <= px; i++) {
         draw_line_3d(hdc, (float)i, 0, 0, (float)i, 0, (float)pz, cam, gridColor);
@@ -300,7 +467,6 @@ void draw_grid(HDC hdc, Camera* cam, pallet* pal_ptr) {
 void draw_sphere_3d(HDC hdc, float cx, float cy, float cz, float radius, Camera* cam, COLORREF color) {
     const int segments = 12;
     
-    // Круг XY
     for (int i = 0; i < segments; i++) {
         float angle1 = (float)i * 3.14159f * 2.0f / segments;
         float angle2 = (float)(i + 1) * 3.14159f * 2.0f / segments;
@@ -311,8 +477,8 @@ void draw_sphere_3d(HDC hdc, float cx, float cy, float cz, float radius, Camera*
         float y2 = cy + radius * sin(angle2);
         
         draw_line_3d(hdc, x1, y1, cz, x2, y2, cz, cam, color);
-    }   
-    // Круг XZ
+    }
+    
     for (int i = 0; i < segments; i++) {
         float angle1 = (float)i * 3.14159f * 2.0f / segments;
         float angle2 = (float)(i + 1) * 3.14159f * 2.0f / segments;
@@ -324,7 +490,7 @@ void draw_sphere_3d(HDC hdc, float cx, float cy, float cz, float radius, Camera*
         
         draw_line_3d(hdc, x1, cy, z1, x2, cy, z2, cam, color);
     }
-    // Круг YZ
+    
     for (int i = 0; i < segments; i++) {
         float angle1 = (float)i * 3.14159f * 2.0f / segments;
         float angle2 = (float)(i + 1) * 3.14159f * 2.0f / segments;
@@ -346,13 +512,8 @@ void draw_center_of_mass(HDC hdc, pallet* pal_ptr, Camera* cam) {
     float com_z = (float)pal_ptr->xyz_mass_centre[2];
     
     draw_sphere_3d(hdc, com_x, com_y, com_z, 15.0f, cam, RGB(255, 0, 0));
-    
-    float line_length = 30.0f;
-
-    // Рисуем вертикальную линию от основания до центра масс (пунктирная)
     draw_line_3d(hdc, com_x, 0, com_z, com_x, com_y, com_z, cam, RGB(255, 100, 100));
     
-    // Проекция на плоскость паллета (круг на основании)
     const int circle_segments = 16;
     float base_radius = 20.0f;
     for (int i = 0; i < circle_segments; i++) {
@@ -367,11 +528,9 @@ void draw_center_of_mass(HDC hdc, pallet* pal_ptr, Camera* cam) {
         draw_line_3d(hdc, x1, 0.1f, z1, x2, 0.1f, z2, cam, RGB(255, 150, 150));
     }
     
-    // Также рисуем идеальный центр масс (полупрозрачный зелёный)
     float ideal_x = (float)pal_ptr->ideal_cx;
     float ideal_z = (float)pal_ptr->ideal_cz;
     
-    // Маленький круг на основании для идеального центра
     float ideal_radius = 15.0f;
     for (int i = 0; i < circle_segments; i++) {
         float angle1 = (float)i * 3.14159f * 2.0f / circle_segments;
@@ -391,24 +550,18 @@ void draw_axes(HDC hdc, Camera* cam, pallet* pal_ptr) {
     float py = (float)pal_ptr->xyz_size[1];
     float pz = (float)pal_ptr->xyz_size[2];
 
-    // X - red
     draw_line_3d(hdc, 0, 0, 0, px * 2, 0, 0, cam, RGB(255, 0, 0), 1.5);
-    // Y - green
     draw_line_3d(hdc, 0, 0, 0, 0, py * 2, 0, cam, RGB(0, 255, 0), 1.5);
-    // Z - blue
     draw_line_3d(hdc, 0, 0, 0, 0, 0, pz * 2, cam, RGB(0, 0, 255), 1.5);
 }
 
-// Rendering 3D scene
 void render_3d_scene(HDC hdc, pallet* pal_ptr, Camera* cam) {
     if (!pal_ptr) return;
 
-    // Draw elements in order from far to near (simple sorting)
     draw_axes(hdc, cam, pal_ptr);
     draw_grid(hdc, cam, pal_ptr);
     draw_pallet_base(hdc, cam, pal_ptr);
 
-    // Draw all placed boxes
     int index = 0;
     for (auto& box_ptr : pal_ptr->placed_boxes) {
         draw_box_3d(hdc, box_ptr, index++, cam);
@@ -423,65 +576,6 @@ void draw_text_line(HDC hdc, int x, int y, const char* text, COLORREF color = RG
 
     std::wstring wtext = utf8_to_wstring(text);
     TextOutW(hdc, x, y, wtext.c_str(), (int)wtext.length());
-}
-
-void render_input_panel(HDC hdc, GUIState* state, RECT* panelRect) {
-    HBRUSH hBrush = CreateSolidBrush(RGB(240, 240, 240));
-    FillRect(hdc, panelRect, hBrush);
-    DeleteObject(hBrush);
-
-    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(100, 100, 100));
-    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-    Rectangle(hdc, panelRect->left, panelRect->top, panelRect->right, panelRect->bottom);
-    SelectObject(hdc, hOldPen);
-    DeleteObject(hPen);
-
-    int yPos = panelRect->top + 20;
-    int xPos = panelRect->left + 20;
-
-    HFONT hFont = CreateFontW(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
-    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-    draw_text_line(hdc, xPos, yPos, "Параметры коробок", RGB(0, 0, 128));
-    yPos += 40;
-
-    SelectObject(hdc, hOldFont);
-    DeleteObject(hFont);
-
-    hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
-    hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-    draw_text_line(hdc, xPos, yPos, "Управление:");
-    yPos += 25;
-    draw_text_line(hdc, xPos + 10, yPos, "• Колесико мыши - зум");
-    yPos += 22;
-    draw_text_line(hdc, xPos + 10, yPos, "• ПКМ + движение - поворот");
-    yPos += 35;
-
-    draw_text_line(hdc, xPos, yPos, "Добавленные коробки:", RGB(0, 0, 128));
-    yPos += 25;
-
-    if (state->box_types.empty()) {
-        draw_text_line(hdc, xPos + 10, yPos, "Коробки не добавлены");
-        yPos += 25;
-    }
-    else {
-        for (size_t i = 0; i < state->box_types.size(); i++) {
-            auto& bt = state->box_types[i];
-            char buffer[256];
-            sprintf_s(buffer, "%d. %dx%dx%d см, вес %d кг, кол-во %d",
-                (int)i + 1, bt.width, bt.height, bt.depth, bt.weight, bt.Quantity);
-            draw_text_line(hdc, xPos + 10, yPos, buffer);
-            yPos += 22;
-        }
-    }
-
-    SelectObject(hdc, hOldFont);
-    DeleteObject(hFont);
 }
 
 void render_stats_panel(HDC hdc, pallet* pal_ptr, RECT* panelRect) {
@@ -554,6 +648,13 @@ void render_stats_panel(HDC hdc, pallet* pal_ptr, RECT* panelRect) {
 
     sprintf_s(buffer, "Z: %.1f (идеал: %.1f)", pal_ptr->xyz_mass_centre[2] / 100.0, pal_ptr->ideal_cz);
     draw_text_line(hdc, xPos + 10, yPos, buffer);
+    yPos += 30;
+
+    draw_text_line(hdc, xPos, yPos, "Управление:", RGB(0, 0, 128));
+    yPos += 25;
+    draw_text_line(hdc, xPos + 10, yPos, "• Колесико мыши - зум");
+    yPos += 22;
+    draw_text_line(hdc, xPos + 10, yPos, "• ПКМ + движение - поворот");
 
     SelectObject(hdc, hOldFont);
     DeleteObject(hFont);
@@ -573,26 +674,121 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         return 0;
 
     case WM_COMMAND:
-        if (LOWORD(wParam) == IDC_RESTART_BUTTON) {
-            g_needRestart = true;
+        if (LOWORD(wParam) == IDC_CALC_BUTTON) {
+            if (g_currentTab == 0) {
+                // На вкладке ввода - запускаем расчёт
+                if (g_state.calculation_done) {
+                    int result = MessageBoxW(hwnd, L"Укладка уже рассчитана. Хотите начать новую укладку?", L"Подтверждение", MB_YESNO | MB_ICONQUESTION);
+                    if (result == IDYES) {
+                        reset_state_for_new_packing();
+                        calculate_packing();
+                    }
+                }
+                else {
+                    calculate_packing();
+                }
+                return 0;
+            }
+        }
+        else if (LOWORD(wParam) == IDC_ADD_BUTTON) {
+            // Добавить коробку
+            char buffer[32];
+            
+            GetDlgItemTextA(hwnd, IDC_WIDTH_EDIT, buffer, 32);
+            int width = atoi(buffer);
+            if (width <= 0) {
+                MessageBoxW(hwnd, L"Введите корректную ширину", L"Ошибка", MB_OK | MB_ICONERROR);
+                break;
+            }
+            
+            GetDlgItemTextA(hwnd, IDC_HEIGHT_EDIT, buffer, 32);
+            int height = atoi(buffer);
+            if (height <= 0) {
+                MessageBoxW(hwnd, L"Введите корректную высоту", L"Ошибка", MB_OK | MB_ICONERROR);
+                break;
+            }
+            
+            GetDlgItemTextA(hwnd, IDC_DEPTH_EDIT, buffer, 32);
+            int depth = atoi(buffer);
+            if (depth <= 0) {
+                MessageBoxW(hwnd, L"Введите корректную глубину", L"Ошибка", MB_OK | MB_ICONERROR);
+                break;
+            }
+            
+            GetDlgItemTextA(hwnd, IDC_QUANTITY_EDIT, buffer, 32);
+            int quantity = atoi(buffer);
+            if (quantity <= 0) {
+                MessageBoxW(hwnd, L"Введите корректное количество", L"Ошибка", MB_OK | MB_ICONERROR);
+                break;
+            }
+            
+            GetDlgItemTextA(hwnd, IDC_WEIGHT_EDIT, buffer, 32);
+            int weight = atoi(buffer);
+            if (weight <= 0) {
+                MessageBoxW(hwnd, L"Введите корректный вес", L"Ошибка", MB_OK | MB_ICONERROR);
+                break;
+            }
+            
+            bool full_rotate = IsDlgButtonChecked(hwnd, IDC_FULL_ROTATE_CHECK) == BST_CHECKED;
+            
+            box_property new_box = { quantity, width, height, depth, weight, full_rotate };
+            g_state.box_types.push_back(new_box);
+            
+            char listBuffer[256];
+            sprintf_s(listBuffer, "Размер: %dx%dx%d мм, Вес: %d кг, Кол-во: %d%s",
+                width, height, depth, weight, quantity, full_rotate ? ", Поворот" : "");
+            std::wstring wbuffer = utf8_to_wstring(listBuffer);
+            SendMessageW(g_hBoxList, LB_ADDSTRING, 0, (LPARAM)wbuffer.c_str());
+            
+            return 0;
+        }
+        else if (LOWORD(wParam) == IDC_CLEAR_BUTTON) {
+            // Очистить список коробок
+            g_state.box_types.clear();
+            SendMessage(g_hBoxList, LB_RESETCONTENT, 0, 0);
             return 0;
         }
         break;
 
+    case WM_NOTIFY: {
+        LPNMHDR pnmhdr = (LPNMHDR)lParam;
+        if (pnmhdr->idFrom == IDC_TAB_CONTROL && pnmhdr->code == TCN_SELCHANGE) {
+            g_currentTab = TabCtrl_GetCurSel(g_hTabControl);
+            
+            if (g_currentTab == 0) {
+                // Вкладка ввода
+                show_input_controls(true);
+                //SetWindowTextW(g_hCalcButton, L"Рассчитать укладку");
+            } else {
+                // Вкладка визуализации
+                show_input_controls(false);
+                //SetWindowTextW(g_hCalcButton, L"Новая укладка");
+            }
+            
+            InvalidateRect(hwnd, NULL, TRUE);
+            return 0;
+        }
+        break;
+    }
+
     case WM_MOUSEWHEEL: {
-        int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-        g_camera.distance -= delta / 10.0f * 2.0f;
-        if (g_camera.distance < 100) g_camera.distance = 100;
-        if (g_camera.distance > 5000) g_camera.distance = 5000;
-        InvalidateRect(hwnd, NULL, FALSE);
+        if (g_currentTab == 1) { // Только на вкладке визуализации
+            int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            g_camera.distance -= delta / 10.0f * 2.0f;
+            if (g_camera.distance < 100) g_camera.distance = 100;
+            if (g_camera.distance > 5000) g_camera.distance = 5000;
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
         return 0;
     }
 
     case WM_RBUTTONDOWN:
-        isDragging = true;
-        lastMousePos.x = GET_X_LPARAM(lParam);
-        lastMousePos.y = GET_Y_LPARAM(lParam);
-        SetCapture(hwnd);
+        if (g_currentTab == 1) {
+            isDragging = true;
+            lastMousePos.x = GET_X_LPARAM(lParam);
+            lastMousePos.y = GET_Y_LPARAM(lParam);
+            SetCapture(hwnd);
+        }
         return 0;
 
     case WM_RBUTTONUP:
@@ -601,7 +797,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         return 0;
 
     case WM_MOUSEMOVE:
-        if (isDragging) {
+        if (isDragging && g_currentTab == 1) {
             POINT currentPos;
             currentPos.x = GET_X_LPARAM(lParam);
             currentPos.y = GET_Y_LPARAM(lParam);
@@ -634,18 +830,45 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         FillRect(hdcMem, &clientRect, hBrush);
         DeleteObject(hBrush);
 
-        if (g_state.current_pallet) {
-            render_3d_scene(hdcMem, g_state.current_pallet, &g_camera);
+        // Отрисовка в зависимости от активной вкладки
+        if (g_currentTab == 1 && g_state.current_pallet[0]) {
+            RECT renderRect = clientRect;
+            renderRect.top = 55;
+
+            FillRect(hdcMem, &renderRect, hBrush);
+
+            HRGN hRgn = CreateRectRgn(renderRect.left, renderRect.top, renderRect.right, renderRect.bottom);
+            SelectClipRgn(hdcMem, hRgn);
+
+            render_3d_scene(hdcMem, g_state.current_pallet[0], &g_camera);
+
+            if (g_state.calculation_done) {
+                RECT statsPanel = { g_windowWidth - 380, 60, g_windowWidth - 10, 520 };
+                render_stats_panel(hdcMem, g_state.current_pallet[0], &statsPanel);
+            }
+
+            SelectClipRgn(hdcMem, NULL);
+            DeleteObject(hRgn);
         }
+        if (g_currentTab == 2 && g_state.current_pallet[1]) {
+            RECT renderRect = clientRect;
+            renderRect.top = 55;
 
-        RECT inputPanel = { 10, 10, 400, 400 };
-        render_input_panel(hdcMem, &g_state, &inputPanel);
+            FillRect(hdcMem, &renderRect, hBrush);
 
-        if (g_state.current_pallet && g_state.calculation_done) {
-            RECT statsPanel = { g_windowWidth - 380, 10, g_windowWidth - 10, 420 };
-            render_stats_panel(hdcMem, g_state.current_pallet, &statsPanel);
+            HRGN hRgn = CreateRectRgn(renderRect.left, renderRect.top, renderRect.right, renderRect.bottom);
+            SelectClipRgn(hdcMem, hRgn);
+
+            render_3d_scene(hdcMem, g_state.current_pallet[1], &g_camera);
+
+            if (g_state.calculation_done) {
+                RECT statsPanel = { g_windowWidth - 380, 60, g_windowWidth - 10, 520 };
+                render_stats_panel(hdcMem, g_state.current_pallet[1], &statsPanel);
+            }
+
+            SelectClipRgn(hdcMem, NULL);
+            DeleteObject(hRgn);
         }
-
         BitBlt(hdc, 0, 0, g_windowWidth, g_windowHeight, hdcMem, 0, 0, SRCCOPY);
 
         SelectObject(hdcMem, hbmOld);
@@ -660,15 +883,43 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
+void update_tabs() {
+    while (TabCtrl_GetItemCount(g_hTabControl) > 1) {
+        TabCtrl_DeleteItem(g_hTabControl, 1);
+    }
+
+    TCITEMW tie;
+    tie.mask = TCIF_TEXT;
+
+    int tabIndex = 1;
+
+    if (g_state.use_center_mass) {
+        tie.pszText = (LPWSTR)L"Центр масс";
+        TabCtrl_InsertItem(g_hTabControl, tabIndex++, &tie);
+    }
+
+    if (g_state.use_max_volume) {
+        tie.pszText = (LPWSTR)L"Макс объём";
+        TabCtrl_InsertItem(g_hTabControl, tabIndex++, &tie);
+    }
+}
+
 bool init_graphics(int width, int height, const char* title) {
     g_windowWidth = width;
     g_windowHeight = height;
+
+    // Инициализация Common Controls
+    INITCOMMONCONTROLSEX icex;
+    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icex.dwICC = ICC_TAB_CLASSES;
+    InitCommonControlsEx(&icex);
 
     WNDCLASSW wc = {};
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.lpszClassName = L"PalletVisualizerClass";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.style = CS_HREDRAW | CS_VREDRAW; // Добавьте эту строку
 
     RegisterClassW(&wc);
 
@@ -677,7 +928,7 @@ bool init_graphics(int width, int height, const char* title) {
         0,
         L"PalletVisualizerClass",
         wtitle.c_str(),
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, 
         CW_USEDEFAULT, CW_USEDEFAULT,
         width, height,
         NULL, NULL,
@@ -687,21 +938,200 @@ bool init_graphics(int width, int height, const char* title) {
 
     if (!g_hWnd) return false;
 
-    g_hRestartButton = CreateWindowW(
-        L"BUTTON",
-        L"Новая укладка",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        10, height - 80, 200, 40,
+    HINSTANCE hInst = GetModuleHandle(NULL);
+
+    g_hTabControl = CreateWindowW(
+        WC_TABCONTROLW,
+        L"",
+        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+        0, 0, width - 16, 50,
         g_hWnd,
-        (HMENU)IDC_RESTART_BUTTON,
-        GetModuleHandle(NULL),
+        (HMENU)IDC_TAB_CONTROL,
+        hInst,
+        NULL
+    );
+
+    // вкладки
+    TCITEMW tie;
+    tie.mask = TCIF_TEXT;
+    
+    tie.pszText = (LPWSTR)L"Ввод данных";
+    TabCtrl_InsertItem(g_hTabControl, 0, &tie);
+
+    TabCtrl_SetCurSel(g_hTabControl, 0);
+
+    int yPos = 60;
+    int xLabel = 20;
+    int xEdit = 200;
+    int labelWidth = 170;
+    int editWidth = 200;
+    int lineHeight = 30;
+
+    // Параметры паллеты
+    g_hPalletLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Параметры паллеты (мм):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, 300, 20, g_hWnd, NULL, hInst, NULL);
+    yPos += 25;
+
+    g_hPWidthLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Ширина (X):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hPWidthEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_P_WIDTH_EDIT, hInst, NULL);
+    SetDlgItemInt(g_hWnd, IDC_P_WIDTH_EDIT, PALLET_X, FALSE);
+    yPos += lineHeight;
+
+    g_hPHeightLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Высота (Y):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hPHeightEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_P_HEIGHT_EDIT, hInst, NULL);
+    SetDlgItemInt(g_hWnd, IDC_P_HEIGHT_EDIT, PALLET_Y, FALSE);
+    yPos += lineHeight;
+
+    g_hPDepthLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Глубина (Z):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hPDepthEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_P_DEPTH_EDIT, hInst, NULL);
+    SetDlgItemInt(g_hWnd, IDC_P_DEPTH_EDIT, PALLET_Z, FALSE);
+    yPos += lineHeight;
+
+    g_hPMaxMassLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Макс. вес (кг):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hPMaxMassEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_P_MAX_MASS_EDIT, hInst, NULL);
+    SetDlgItemInt(g_hWnd, IDC_P_MAX_MASS_EDIT, PALLET_MAX_MASS, FALSE);
+    yPos += lineHeight + 20;
+
+    // Добавление коробок
+    g_hBoxesLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Добавление коробок:").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, 300, 20, g_hWnd, NULL, hInst, NULL);
+    yPos += 25;
+
+    g_hWidthLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Ширина (мм):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hWidthEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"300",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_WIDTH_EDIT, hInst, NULL);
+    yPos += lineHeight;
+
+    g_hHeightLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Высота (мм):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hHeightEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"300",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_HEIGHT_EDIT, hInst, NULL);
+    yPos += lineHeight;
+
+    g_hDepthLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Глубина (мм):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hDepthEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"300",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_DEPTH_EDIT, hInst, NULL);
+    yPos += lineHeight;
+
+    g_hQuantityLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Количество:").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hQuantityEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"10",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_QUANTITY_EDIT, hInst, NULL);
+    yPos += lineHeight;
+
+    g_hWeightLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Вес (кг):").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
+    g_hWeightEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"20",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
+        xEdit, yPos - 3, editWidth, 25,
+        g_hWnd, (HMENU)IDC_WEIGHT_EDIT, hInst, NULL);
+    yPos += lineHeight;
+
+    std::wstring fullRotateText = utf8_to_wstring("Полный поворот коробок?");
+    g_hFullRotateCheck = CreateWindowW(L"BUTTON", fullRotateText.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        xEdit, yPos, 200, 20,
+        g_hWnd, (HMENU)IDC_FULL_ROTATE_CHECK, hInst, NULL);
+    yPos += lineHeight + 10;
+
+    std::wstring addButtonText = utf8_to_wstring("Добавить коробки");
+    g_hAddButton = CreateWindowW(L"BUTTON", addButtonText.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        xLabel, yPos, 180, 30,
+        g_hWnd, (HMENU)IDC_ADD_BUTTON, hInst, NULL);
+
+    std::wstring clearButtonText = utf8_to_wstring("Очистить список");
+    g_hClearButton = CreateWindowW(L"BUTTON", clearButtonText.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        xLabel + 190, yPos, 180, 30,
+        g_hWnd, (HMENU)IDC_CLEAR_BUTTON, hInst, NULL);
+    yPos += 40;
+
+    int y2Pos = 60;
+	int x2Label = xLabel + 440;
+
+    g_hBoxListLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Добавленные типы коробок:").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        x2Label, y2Pos, 300, 20, g_hWnd, NULL, hInst, NULL);
+    y2Pos += 25;
+
+    g_hBoxList = CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", NULL,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | LBS_NOTIFY,
+        x2Label, y2Pos, 520, 310,
+        g_hWnd, (HMENU)IDC_BOX_LIST, hInst, NULL);
+    y2Pos += 315;
+
+    g_hMethodLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Метод укладки:").c_str(),
+        WS_CHILD | WS_VISIBLE | SS_LEFT,
+        x2Label, y2Pos, 300, 20, g_hWnd, NULL, hInst, NULL);
+    y2Pos += 25;
+
+    std::wstring centerMassText = utf8_to_wstring("По центру масс");
+    g_hCenterMassCheck = CreateWindowW(L"BUTTON", centerMassText.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        x2Label, y2Pos, 200, 20,
+        g_hWnd, (HMENU)IDC_SET_CENTER_MASS, hInst, NULL);
+
+    std::wstring maxVolumeText = utf8_to_wstring("По максимальному объёму");
+    g_hMaxVolumeCheck = CreateWindowW(L"BUTTON", maxVolumeText.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        x2Label + 220, y2Pos, 250, 20,
+        g_hWnd, (HMENU)IDC_SET_MAX_VOLUME, hInst, NULL);
+
+    // Кнопка расчёта/новой укладки
+    g_hCalcButton = CreateWindowW(
+        L"BUTTON",
+        L"Рассчитать укладку",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        10, height - 150, width - 40, 40,
+        g_hWnd,
+        (HMENU)IDC_CALC_BUTTON,
+        hInst,
         NULL
     );
 
     HFONT hFont = CreateFontW(18, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
-    SendMessage(g_hRestartButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessage(g_hCalcButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessage(g_hTabControl, WM_SETFONT, (WPARAM)hFont, TRUE);
 
     ShowWindow(g_hWnd, SW_SHOW);
     UpdateWindow(g_hWnd);
@@ -737,90 +1167,18 @@ void process_input() {
 void run_graphics_mode() {
     cout << "Starting graphics mode...\n";
 
-    cout << "Opening box parameters input window...\n";
-
-    if (!show_input_dialog(&g_state)) {
-        cout << "Input dialog was canceled or an error occurred.\n";
-        return;
-    }
-
-    if (g_state.box_types.empty()) {
-        cout << "No boxes were added. Exiting graphics mode.\n";
-        return;
-    }
-
-    cout << "Box types added: " << g_state.box_types.size() << "\n";
-
     if (!init_graphics(g_windowWidth, g_windowHeight, "Визуализация укладки коробок на паллет")) {
         cout << "Graphics initialization error!\n";
         return;
     }
 
-    cout << "\nStarting packing calculation...\n";
-
-    total_boxes.clear();
-
-    int box_len = 0;
-    for (const auto& box_type : g_state.box_types) {
-        box_len += box_type.Quantity;
-    }
-    total_boxes.reserve(box_len);
-    for (const auto& box_type : g_state.box_types) {
-        for (int i = 0; i < box_type.Quantity; ++i) {
-            box* new_box = new box();
-            new_box->xyz_size[0][0] = box_type.width;
-            new_box->xyz_size[0][1] = box_type.height;
-            new_box->xyz_size[0][2] = box_type.depth;
-
-            new_box->xyz_size[1][2] = box_type.width;
-            new_box->xyz_size[1][1] = box_type.height;
-            new_box->xyz_size[1][0] = box_type.depth;
-
-            new_box->xyz_size[2][0] = box_type.width;
-            new_box->xyz_size[2][2] = box_type.height;
-            new_box->xyz_size[2][1] = box_type.depth;
-
-            new_box->mass = box_type.weight;
-
-            new_box->placed = false;
-
-            new_box->full_rotateble = box_type.full_rotateble;
-            total_boxes.push_back(new_box);
-        }
-    }
-
-    g_state.current_pallet = new pallet(
-        g_state.pallet_width,
-        g_state.pallet_height,
-        g_state.pallet_depth,
-        g_state.pallet_max_mass  
-    );
-    g_state.calculation_done = true;
-
-    cout << "Макс. вес паллеты: " << g_state.current_pallet->max_mass << " кг\n";
-
-    g_camera.targetX = g_state.current_pallet->xyz_size[0] / 2.0f;
-    g_camera.targetY = g_state.current_pallet->xyz_size[1] / 2.0f;
-    g_camera.targetZ = g_state.current_pallet->xyz_size[2] / 2.0f;
-    g_camera.distance = g_state.current_pallet->xyz_size[0] * 2.0f;
-
-    pallet_handle(g_state.current_pallet);
-
-    cout << "Calculation completed!\n";
-    cout << "Boxes placed: " << g_state.current_pallet->placed_boxes.size() << endl;
+    cout << "Окно открыто. Добавьте коробки на вкладке 'Ввод данных' и нажмите 'Рассчитать укладку'.\n";
 
     while (!should_close_window()) {
         process_input();
-        
-        if (g_needRestart) {
-            g_needRestart = false;
-            start_new_packing();
-        }
-        
         Sleep(16); // ~60 FPS
     }
 
     reset_state_for_new_packing();
-
     cleanup_graphics();
 }

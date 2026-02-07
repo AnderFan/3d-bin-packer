@@ -34,7 +34,7 @@ struct GUIState {
     vector<box_property> box_types;
 
     // Указатель на текущий паллет
-    pallet* current_pallet = nullptr;
+    vector<pallet*> current_pallet = {nullptr, nullptr};
 
 };
 
@@ -61,6 +61,7 @@ void setup_camera(Camera* cam);
 void render_input_panel(GUIState* state);
 void render_stats_panel(pallet* pal_ptr);
 void render_box_list(GUIState* state);
+void update_tabs();
 
 // Основной цикл графического режима
 void run_graphics_mode();

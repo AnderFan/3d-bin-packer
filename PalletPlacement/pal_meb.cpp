@@ -20,7 +20,7 @@ void meb_gen(pallet* pal_ptr) {
 	}
 }
 
-void check_meb(pallet* pal_ptr) {
+void check_meb(pallet* pal_ptr, vector<box*> total_boxes) {
 	int SUCCESS_PLACE = total_boxes.size() < 20 ? 10 : total_boxes.size() / 2;
 	int FAILER_PLACE = total_boxes.size() < 20 ? 5 : total_boxes.size() / 3;;
 
