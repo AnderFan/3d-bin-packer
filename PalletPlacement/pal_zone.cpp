@@ -5,6 +5,45 @@
 #include <cmath>
 #include <utility>      // std::move
 
+static void dedup_ptrs(std::vector<zone*>& v) { // убираем nullptr и дубли по адресу из вектора зон
+	// убираем nullptr на всякий случай
+	v.erase(std::remove(v.begin(), v.end(), nullptr), v.end());
+
+	// дедуп по адресу
+	std::sort(v.begin(), v.end());
+	v.erase(std::unique(v.begin(), v.end()), v.end());
+}
+
+static bool is_zone_sane(const pallet* pal, const zone* z) { // проверяем зону на адекватность, чтобы не было нулл поинтеров, отрицательных размеров и т.д.
+	if (!z) return false;
+
+	// размеры должны быть > 0 и не превышать паллету
+	for (int i = 0; i < 3; ++i) {
+		if (z->xyz_size[i] <= 0) return false;
+	}
+	if (z->xyz[0] < 0 || z->xyz[1] < 0 || z->xyz[2] < 0) return false;
+
+	// зона должна помещаться в паллету (с допуском)
+	if (z->xyz[0] + z->xyz_size[0] > pal->xyz_size[0]) return false;
+	if (z->xyz[1] + z->xyz_size[1] > pal->xyz_size[1]) return false;
+	if (z->xyz[2] + z->xyz_size[2] > pal->xyz_size[2]) return false;
+
+	return true;
+}
+
+
+static void validate_zone_vector(const pallet* pal) { // вызываем эту функцию после всех операций с зонами, чтобы убедиться что мы не создали какую то коррумпированную зону
+#ifndef NDEBUG
+	const auto& v = pal->zone_vector;
+	for (size_t i = 0; i < v.size(); ++i) {
+		if (!is_zone_sane(pal, v[i])) {
+			std::cerr << "CORRUPT ZONE at index " << i
+				<< " ptr=" << v[i] << "\n";
+			__debugbreak(); // VS: мгновенно остановиться тут
+		}
+	}
+#endif
+}
 
 zone* select_zone(pallet* pallet_ptr) { 
 	zone* best = nullptr;
@@ -106,6 +145,9 @@ vector<zone*> subtract(const zone* A, const zone& I) { // Создаёт кус�
 }
 void sub_zone(pallet* pal_ptr) {
 	// Разрезаем пересекающиеся зоны
+
+	dedup_ptrs(pal_ptr->zone_vector);
+
 	bool changed = true;
 	while (changed) {
 		changed = false;
@@ -136,6 +178,8 @@ bool contained(const zone* a, const zone* b) {
 }
 
 void remove_contained(std::vector<zone*>& zs) { // Удаляет из zs зоны, полностью содержащиеся в других зонах.
+	dedup_ptrs(zs);
+
 	for (size_t i = 0; i < zs.size(); ++i) {
 		for (size_t j = 0; j < zs.size(); ++j) {
 			if (i == j) continue;
@@ -147,36 +191,39 @@ void remove_contained(std::vector<zone*>& zs) { // Удаляет из zs зон
 			}
 		}
 	}
+
+	dedup_ptrs(zs);
 }
 
 void clipping(pallet* pal_ptr) {
+	dedup_ptrs(pal_ptr->zone_vector);
+
 	auto clip = [&](zone* zone) {
 		int& x = zone->xyz[0], y = zone->xyz[1], z = zone->xyz[2];
 		int& sx = zone->xyz_size[0], sy = zone->xyz_size[1], sz = zone->xyz_size[2];
 
 		int X2 = std::min(x + sx, pal_ptr->xyz_size[0]);
 		int Y2 = std::min(y + sy, pal_ptr->xyz_size[1]);
-		int Z2 = std::min(z + sz, pal_ptr->xyz_size[2]); // Узнаю что меньше, величина паллеты или зоны
+		int Z2 = std::min(z + sz, pal_ptr->xyz_size[2]);
 
 		x = std::max(x, 0);
 		y = std::max(y, 0);
-		z = std::max(z, 0); // Подтягиваем координаты к нулю, если надо
+		z = std::max(z, 0); 
 
 		sz = Z2 - z;
 		sx = X2 - x;
-		sy = Y2 - y; // Пересчитываем размеры зоны
+		sy = Y2 - y; 
 
 		};
 	for (auto* zone : pal_ptr->zone_vector) clip(zone);
 
-	pal_ptr->zone_vector.erase(
-		remove_if(pal_ptr->zone_vector.begin(), pal_ptr->zone_vector.end(),
-			[](zone* zone) {
-				return zone->xyz_size[0] <= 0 || zone->xyz_size[1] <= 0 || zone->xyz_size[2] <= 0;
-			}),
-		pal_ptr->zone_vector.end()
-	);
+	auto& v = pal_ptr->zone_vector;
+	auto it = std::remove_if(v.begin(), v.end(), [](zone* zone) {
+		return zone->xyz_size[0] <= 0 || zone->xyz_size[1] <= 0 || zone->xyz_size[2] <= 0;
+		});
 
+	for (auto p = it; p != v.end(); ++p) delete* p;
+	v.erase(it, v.end());
 }
 
 bool can_mergeX(const zone* A, const zone* B) {
@@ -265,15 +312,24 @@ void merge_zone(vector<zone*>& pal_ptr) {
 	while (changed) changed = try_merge_once(pal_ptr);
 }
 
+//void erase_dub(pallet* pal_ptr) {
+//	auto& v = pal_ptr->zone_vector;
+//	sort_by_xyz_then_size(v);
+//	auto it = std::unique(v.begin(), v.end(), zones_equal);
+//	for (auto d = it; d != v.end(); ++d) delete* d;  // освободить память
+//	v.erase(it, v.end()); // делет 
+//
+//}
 void erase_dub(pallet* pal_ptr) {
 	auto& v = pal_ptr->zone_vector;
+
+	dedup_ptrs(v);
 	sort_by_xyz_then_size(v);
+
 	auto it = std::unique(v.begin(), v.end(), zones_equal);
-	for (auto d = it; d != v.end(); ++d) delete* d;  // освободить память
-	v.erase(it, v.end()); // делет 
-
+	for (auto d = it; d != v.end(); ++d) delete* d;
+	v.erase(it, v.end());
 }
-
 void split_zone(pallet* pallet_ptr, zone* zone_to_split_pointer, box* box_ptr) {
 	// Сохраняем данные зоны ДО удаления
 	const int zx = zone_to_split_pointer->xyz[0];
@@ -412,6 +468,8 @@ void split_zone(pallet* pallet_ptr, zone* zone_to_split_pointer, box* box_ptr) {
 
 
 bool try_merge_once(vector<zone*>& zs) {
+	dedup_ptrs(zs);
+
 	for (size_t i = 0; i < zs.size(); ++i) {
 		for (size_t j = i + 1; j < zs.size(); ++j) {
 			zone* A = zs[i], * B = zs[j];
@@ -436,6 +494,8 @@ bool try_merge_once(vector<zone*>& zs) {
 
 bool merge_any_pair_XYZ(pallet* pal) { // попытка чё-нибудь слить, что бы не расстраиваться
 	auto& zs = pal->zone_vector;
+
+	dedup_ptrs(zs);
 	sort_by_xyz_then_size(zs);
 
 	for (size_t i = 0; i < zs.size(); ++i) {
@@ -468,12 +528,14 @@ void zone_cleanup(pallet* pal_ptr) { // чистим зоны от мусора.
 	// P.S от подсмешка: эта фукнция далась мне крайне трудно и болезненно. Некоторые  вещи из тех что написаны
 	// здесь я до сих пор не до конца понимаю
 
+	dedup_ptrs(pal_ptr->zone_vector);
+
 	clipping(pal_ptr); // обрезаем зоны по размерам паллеты
 	//sort_by_xyz_then_size(pal_ptr->zone_vector); // сортируем зоны по координатам и размерам
 	erase_dub(pal_ptr); // удаляем дублирующиеся зоны
 	//sub_zone(pal_ptr); // Вырезаем кусочки пересекающихся зон UPD: Возможно стоит просто убирать самую большую зону.
 
-
+	dedup_ptrs(pal_ptr->zone_vector);
 
 	//sort_by_xyz_then_size(pal_ptr->zone_vector);
 	//remove_contained(pal_ptr->zone_vector); // удаляем зоны которые полностью содержатся в других зонах
@@ -487,7 +549,10 @@ void zone_cleanup(pallet* pal_ptr) { // чистим зоны от мусора.
 	sort_by_xyz_then_size(pal_ptr->zone_vector); // сортируем зоны по координатам и размерам
 	erase_dub(pal_ptr); // удаляем дублирующиеся зоны
 	clipping(pal_ptr);
+	dedup_ptrs(pal_ptr->zone_vector);
 
+
+	validate_zone_vector(pal_ptr);
 	//clipping(pal_ptr); // обрезаем зоны по размерам паллеты
 	//sub_zone(pal_ptr); // Вырезаем кусочки пересекающихся зон
 	//remove_contained(pal_ptr->zone_vector); // удаляем зоны которые полностью содержатся в других зонах

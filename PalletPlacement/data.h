@@ -42,7 +42,7 @@ using namespace std;
 struct zone {
 	int xyz[3]; 
 	int xyz_size[3]; // ширина[0], высота[1], глубота[2]
-	int index = 0;	 
+	//int index = 0;	 
 	bool usable = true; // жива ли зона - если фалс то зона метрва да
 
 
@@ -51,16 +51,19 @@ struct zone {
  struct pallet {
 	//int xyz_size[3] = { 1200, 1555, 800 }; // ширина[0], высота[1], глубота[2]
 	int xyz_size[3] = { PALLET_X, PALLET_Y, PALLET_Z }; // ширина[0], высота[1], глубота[2]
-	int xyz_mass_centre[3] = { 0, 0, 0 }; // центр массы паллета
+	double xyz_mass_centre[3] = { 0, 0, 0 }; // центр массы паллета
 
-	double ideal_cx; // идеальный центр масс по X
-	double ideal_cz; // идеальный центр масс по Z
+	double ideal_cx; // идеальный центр 
+	double ideal_cy;
+	double ideal_cz;
+
 
 	int total_mass = 0; // суммарный вес 
 	int max_mass = PALLET_MAX_MASS; // макс вес паллета (теперь изменяемый)
 
 	vector<box*> placed_boxes; // размещенные коробоки
-	vector<zone*> zone_vector = { new zone{ {0, 0, 0}, {xyz_size[0], xyz_size[1], xyz_size[2]}, true} }; // вектор с активными зонами
+	//vector<zone*> zone_vector = { new zone{ {0, 0, 0}, {xyz_size[0], xyz_size[1], xyz_size[2]}, true} }; // вектор с активными зонами
+	vector<zone*> zone_vector;
 	//unique_ptr<zone> zone_vector = make_unique<zone>(zone{ {0,0,0},{10,10,10}, true });
 	vector<zone*> zone_dead_vector; // мертвые зоны - зоны на которых невозможно размеситть коробок
 
@@ -79,9 +82,22 @@ struct zone {
     pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z, int maxMass = PALLET_MAX_MASS, int centerMassOrMaxVolume = 0) 
         : xyz_size{ x, y, z }, max_mass(maxMass), center_mass_or_max_volume(centerMassOrMaxVolume) {
         ideal_cx = x / 2.0;
+		ideal_cy = 0.0;
         ideal_cz = z / 2.0;
-        //zone_vector.push_back(new zone{ {0, 0, 0}, {x, y, z}, true });
+        zone_vector.push_back(new zone{ {0, 0, 0}, {x, y, z}, true });
     }
+
+	//// ✅ ИСПРАВЛЕННЫЙ конструктор - с ФИГУРНЫМИ СКОБКАМИ в конце!
+	//pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z,
+	//	int maxMass = PALLET_MAX_MASS, int centerMassOrMaxVolume = 0)
+	//	: xyz_size{ x, y, z },
+	//	max_mass(maxMass),
+	//	center_mass_or_max_volume(centerMassOrMaxVolume),
+	//	ideal_cx(x / 2.0),
+	//	ideal_cz(z / 2.0)
+	//{  // ✅ ФИГУРНАЯ СКОБКА, НЕ ТОЧКА С ЗАПЯТОЙ!
+	//	zone_vector.push_back(new zone{ {0, 0, 0}, {x, y, z}, 0, true });
+	//}
 };
 
 struct box_property {

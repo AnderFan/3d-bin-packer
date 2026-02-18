@@ -21,6 +21,7 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
     sort_boxes(total_boxes);
 
     cout << "Всего коробок: " << total_boxes.size() << endl;
+	cout << "Кол-во ЗОН " << pal_ptr->zone_vector.size() << endl;
     zone* pal_zone_ptr;
     box* placed_box_ptr = nullptr;
     height_map_init(pal_ptr);

@@ -34,7 +34,7 @@ bool try_merge_once(std::vector<zone*>& zs); // пытаемся слить хо
 
 std::vector<zone*> build_meb_zones(pallet* pal); // Строим новый список зон (zone*) из MEB-боксов на основании УЖЕ уложенных коробок.
 
-void check_meb(pallet* pal_ptr, vector<box*> total_boxes); // проверяем нужно ли делать дефрагментацию зон
+void check_meb(pallet* pal, const std::vector<box*>& boxes); // проверяем нужно ли делать дефрагментацию зон
 
 void meb_gen(pallet* pal_ptr); 
 
@@ -46,7 +46,7 @@ void height_map_init(pallet* pal_ptr); // инициализация карты 
 bool is_placement_possible(pallet* pallet_pointer, vector<box*> total_boxes);
 
 //найти и разместить коробку для данной зоны, возворащает коробку которую разместило, или же НУЛЛ если хуйня история
-box* box_placement_handle(pallet* pallet_pointer, zone* zone_to_handle, vector<box*> total_boxes);
+box* box_placement_handle(pallet* pallet_pointer, zone* zone_to_handle, vector<box*>& total_boxes);
 
 // проверка на коллизию коробки с уже размещенными коробками
 bool fits_without_collision(int bx, int by, int bz, int w, int h, int d, const vector<box*>& placed);
@@ -69,7 +69,7 @@ box* select_best_box(vector<box*> total_boxes);
 /* размещаем данную коробку в данную зону
 	@param pal_pointer нужен шоб добавить в сам паллет коробку которую разместили
 */
-void place_box(pallet* pallet_pointer, zone* zone_pointer, box* box_pointer, vector<box*> total_boxes);
+void place_box(pallet* pallet_pointer, zone* zone_pointer, box* box_pointer, vector<box*>& total_boxes);
 
 // функция которая проверяет можно ли физически разместить данную коробку в данной зоне
 bool can_place_box_in_zone(zone* zone, int w, int h, int d);

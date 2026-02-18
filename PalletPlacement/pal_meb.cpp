@@ -20,17 +20,25 @@ void meb_gen(pallet* pal_ptr) {
 	}
 }
 
-void check_meb(pallet* pal_ptr, vector<box*> total_boxes) {
-	int SUCCESS_PLACE = total_boxes.size() < 20 ? 10 : total_boxes.size() / 2;
-	int FAILER_PLACE = total_boxes.size() < 20 ? 5 : total_boxes.size() / 3;;
+//void check_meb(pallet* pal_ptr, vector<box*> total_boxes) {
+//	int SUCCESS_PLACE = total_boxes.size() < 20 ? 10 : total_boxes.size() / 2;
+//	int FAILER_PLACE = total_boxes.size() < 20 ? 5 : total_boxes.size() / 3;;
+//
+//	if ((pal_ptr->placed_since_meb >= SUCCESS_PLACE || pal_ptr->failed_in_row >= FAILER_PLACE) && pal_ptr->was_defrag == false) {
+//		meb_gen(pal_ptr);
+//	}
+//
+//}
 
-	if ((pal_ptr->placed_since_meb >= SUCCESS_PLACE || pal_ptr->failed_in_row >= FAILER_PLACE) && pal_ptr->was_defrag == false) {
+void check_meb(pallet* pal_ptr, const vector<box*>& total_boxes) {
+	int SUCCESS_PLACE = total_boxes.size() < 20 ? 10 : (int)total_boxes.size() / 2;
+	int FAILER_PLACE = total_boxes.size() < 20 ? 5 : (int)total_boxes.size() / 3;
+
+	if ((pal_ptr->placed_since_meb >= SUCCESS_PLACE || pal_ptr->failed_in_row >= FAILER_PLACE) &&
+		pal_ptr->was_defrag == false) {
 		meb_gen(pal_ptr);
 	}
-
 }
-
-
 
 inline bool aabb_intersect(const AABB& a, const AABB& b) {
 	return !(a.x + a.w <= b.x || b.x + b.w <= a.x ||

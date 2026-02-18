@@ -1,5 +1,5 @@
 ﻿  graphics.cpp
-C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\graphics.cpp(370,37): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\graphics.cpp(424,37): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
   PalletPlacement.vcxproj -> C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\x64\Debug\PalletPlacement.exe
   "pwsh.exe" не является внутренней или внешней
   командой, исполняемой программой или пакетным файлом.

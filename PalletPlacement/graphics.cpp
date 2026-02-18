@@ -38,6 +38,7 @@ static int g_currentTab = 0; // 0 - ввод, 1 - визуализация, 2 в
 #define IDC_ADD_BUTTON      3013
 #define IDC_CLEAR_BUTTON    3014
 #define IDC_BOX_LIST        3015
+#define IDC_DELETE_BUTTON   3016
 
 // Дескрипторы элементов управления для вкладки ввода
 static HWND g_hPWidthEdit = NULL;
@@ -54,6 +55,7 @@ static HWND g_hCenterMassCheck = NULL;
 static HWND g_hMaxVolumeCheck = NULL;
 static HWND g_hAddButton = NULL;
 static HWND g_hClearButton = NULL;
+static HWND g_hDeleteButton = NULL;
 static HWND g_hBoxList = NULL;
 
 // Статические метки
@@ -83,6 +85,54 @@ static Camera g_camera;
 static GUIState g_state;
 static int g_windowWidth = 1200;
 static int g_windowHeight = 720;
+static void hide_delete_button() {
+    if (g_hDeleteButton) {
+        ShowWindow(g_hDeleteButton, SW_HIDE);
+    }
+}
+
+static void update_delete_button_position() {
+    if (!g_hWnd || !g_hBoxList || !g_hDeleteButton) return;
+
+    int sel = (int)SendMessageW(g_hBoxList, LB_GETCURSEL, 0, 0);
+    if (sel == LB_ERR) {
+        hide_delete_button();
+        return;
+    }
+
+    RECT itemRc{};
+    if (SendMessageW(g_hBoxList, LB_GETITEMRECT, (WPARAM)sel, (LPARAM)&itemRc) == LB_ERR) {
+        hide_delete_button();
+        return;
+    }
+
+    POINT pt{ itemRc.right, itemRc.top };
+    ClientToScreen(g_hBoxList, &pt);
+    ScreenToClient(g_hWnd, &pt);
+
+    const int margin = 4;
+    int btnW = 40;
+    int btnH = itemRc.bottom - itemRc.top;
+    if (btnH < 18) btnH = 18;
+
+    int x = pt.x + margin;
+    int y = pt.y;
+
+    RECT listScreenRc{};
+    GetWindowRect(g_hBoxList, &listScreenRc);
+    POINT listTL{ listScreenRc.left, listScreenRc.top };
+    POINT listBR{ listScreenRc.right, listScreenRc.bottom };
+    ScreenToClient(g_hWnd, &listTL);
+    ScreenToClient(g_hWnd, &listBR);
+
+    if (x + btnW > listBR.x) {
+        x = listTL.x - btnW - margin;
+    }
+
+    SetWindowPos(g_hDeleteButton, NULL, x, y, btnW, btnH, SWP_NOZORDER);
+    ShowWindow(g_hDeleteButton, SW_SHOW);
+}
+
 
 void show_input_controls(bool show) {
     int cmd = show ? SW_SHOW : SW_HIDE;
@@ -119,7 +169,11 @@ void show_input_controls(bool show) {
     ShowWindow(g_hCenterMassCheck, cmd);
     ShowWindow(g_hMaxVolumeCheck, cmd);
 	ShowWindow(g_hCalcButton, cmd);
+
+    if (show) update_delete_button_position();
+    else hide_delete_button();
 }
+
 
 void reset_state_for_new_packing() {
 
@@ -144,7 +198,7 @@ void reset_state_for_new_packing() {
             pal->placed_boxes.clear();
 
             delete pal;
-            g_state.current_pallet = {};
+            g_state.current_pallet = { nullptr, nullptr };
         }
 	}
     
@@ -310,7 +364,7 @@ void calculate_packing() {
         cout << "Расчёт завершён! Размещено коробок: " << pal->placed_boxes.size() << " для " << index++ << "паллеты." << endl;
         // Освобождаем память
         for (auto* box_ptr : total_boxes) {
-            if (!box_ptr->placed) {
+            if (box_ptr && !box_ptr->placed) {
                 delete box_ptr;
             }
         }
@@ -642,11 +696,15 @@ void render_stats_panel(HDC hdc, pallet* pal_ptr, RECT* panelRect) {
     draw_text_line(hdc, xPos, yPos, "Центр масс:", RGB(0, 0, 128));
     yPos += 25;
 
-    sprintf_s(buffer, "X: %.1f (идеал: %.1f)", pal_ptr->xyz_mass_centre[0] / 100.0, pal_ptr->ideal_cx);
+    sprintf_s(buffer, "X: %d мм (идеал: %d мм)", (int)pal_ptr->xyz_mass_centre[0], (int)pal_ptr->ideal_cx);
     draw_text_line(hdc, xPos + 10, yPos, buffer);
     yPos += 22;
 
-    sprintf_s(buffer, "Z: %.1f (идеал: %.1f)", pal_ptr->xyz_mass_centre[2] / 100.0, pal_ptr->ideal_cz);
+    sprintf_s(buffer, "Y: %d мм (идеал: %d мм)", (int)pal_ptr->xyz_mass_centre[1], (int)pal_ptr->ideal_cy);
+    draw_text_line(hdc, xPos + 10, yPos, buffer);
+    yPos += 22;
+
+    sprintf_s(buffer, "Z: %d мм (идеал: %d мм)", (int)pal_ptr->xyz_mass_centre[2], (int)pal_ptr->ideal_cz);
     draw_text_line(hdc, xPos + 10, yPos, buffer);
     yPos += 30;
 
@@ -676,7 +734,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     case WM_COMMAND:
         if (LOWORD(wParam) == IDC_CALC_BUTTON) {
             if (g_currentTab == 0) {
-                // На вкладке ввода - запускаем расчёт
                 if (g_state.calculation_done) {
                     int result = MessageBoxW(hwnd, L"Укладка уже рассчитана. Хотите начать новую укладку?", L"Подтверждение", MB_YESNO | MB_ICONQUESTION);
                     if (result == IDYES) {
@@ -693,59 +750,84 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         else if (LOWORD(wParam) == IDC_ADD_BUTTON) {
             // Добавить коробку
             char buffer[32];
-            
+
             GetDlgItemTextA(hwnd, IDC_WIDTH_EDIT, buffer, 32);
             int width = atoi(buffer);
             if (width <= 0) {
                 MessageBoxW(hwnd, L"Введите корректную ширину", L"Ошибка", MB_OK | MB_ICONERROR);
                 break;
             }
-            
+
             GetDlgItemTextA(hwnd, IDC_HEIGHT_EDIT, buffer, 32);
             int height = atoi(buffer);
             if (height <= 0) {
                 MessageBoxW(hwnd, L"Введите корректную высоту", L"Ошибка", MB_OK | MB_ICONERROR);
                 break;
             }
-            
+
             GetDlgItemTextA(hwnd, IDC_DEPTH_EDIT, buffer, 32);
             int depth = atoi(buffer);
             if (depth <= 0) {
                 MessageBoxW(hwnd, L"Введите корректную глубину", L"Ошибка", MB_OK | MB_ICONERROR);
                 break;
             }
-            
+
             GetDlgItemTextA(hwnd, IDC_QUANTITY_EDIT, buffer, 32);
             int quantity = atoi(buffer);
             if (quantity <= 0) {
                 MessageBoxW(hwnd, L"Введите корректное количество", L"Ошибка", MB_OK | MB_ICONERROR);
                 break;
             }
-            
+
             GetDlgItemTextA(hwnd, IDC_WEIGHT_EDIT, buffer, 32);
             int weight = atoi(buffer);
             if (weight <= 0) {
                 MessageBoxW(hwnd, L"Введите корректный вес", L"Ошибка", MB_OK | MB_ICONERROR);
                 break;
             }
-            
+
             bool full_rotate = IsDlgButtonChecked(hwnd, IDC_FULL_ROTATE_CHECK) == BST_CHECKED;
-            
+
             box_property new_box = { quantity, width, height, depth, weight, full_rotate };
             g_state.box_types.push_back(new_box);
-            
+
             char listBuffer[256];
             sprintf_s(listBuffer, "Размер: %dx%dx%d мм, Вес: %d кг, Кол-во: %d%s",
                 width, height, depth, weight, quantity, full_rotate ? ", Поворот" : "");
             std::wstring wbuffer = utf8_to_wstring(listBuffer);
             SendMessageW(g_hBoxList, LB_ADDSTRING, 0, (LPARAM)wbuffer.c_str());
-            
+
             return 0;
         }
         else if (LOWORD(wParam) == IDC_CLEAR_BUTTON) {
-            // Очистить список коробок
             g_state.box_types.clear();
             SendMessage(g_hBoxList, LB_RESETCONTENT, 0, 0);
+            hide_delete_button();
+            return 0;
+        }
+        else if (LOWORD(wParam) == IDC_BOX_LIST && HIWORD(wParam) == LBN_SELCHANGE) {
+            update_delete_button_position();
+            return 0;
+        }
+		else if (LOWORD(wParam) == IDC_DELETE_BUTTON) { // Удаление выбранной коробки
+            int sel = (int)SendMessageW(g_hBoxList, LB_GETCURSEL, 0, 0);
+            if (sel == LB_ERR) {
+                MessageBoxW(hwnd, L"Выберите строку в списке, чтобы удалить.", L"Удаление", MB_OK | MB_ICONINFORMATION);
+                return 0;
+            }
+
+            if (sel >= 0 && sel < (int)g_state.box_types.size()) {
+                g_state.box_types.erase(g_state.box_types.begin() + sel);
+            }
+
+            SendMessageW(g_hBoxList, LB_DELETESTRING, (WPARAM)sel, 0);
+
+            int newCount = (int)SendMessageW(g_hBoxList, LB_GETCOUNT, 0, 0);
+            if (newCount > 0) {
+                int newSel = min(sel, newCount - 1);
+                SendMessageW(g_hBoxList, LB_SETCURSEL, (WPARAM)newSel, 0);
+            }
+            update_delete_button_position();
             return 0;
         }
         break;
@@ -758,11 +840,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             if (g_currentTab == 0) {
                 // Вкладка ввода
                 show_input_controls(true);
-                //SetWindowTextW(g_hCalcButton, L"Рассчитать укладку");
             } else {
                 // Вкладка визуализации
                 show_input_controls(false);
-                //SetWindowTextW(g_hCalcButton, L"Новая укладка");
             }
             
             InvalidateRect(hwnd, NULL, TRUE);
@@ -772,7 +852,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     }
 
     case WM_MOUSEWHEEL: {
-        if (g_currentTab == 1) { // Только на вкладке визуализации
+        if (g_currentTab != 0) { // Только на вкладке визуализации
             int delta = GET_WHEEL_DELTA_WPARAM(wParam);
             g_camera.distance -= delta / 10.0f * 2.0f;
             if (g_camera.distance < 100) g_camera.distance = 100;
@@ -783,7 +863,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     }
 
     case WM_RBUTTONDOWN:
-        if (g_currentTab == 1) {
+        if (g_currentTab != 0) {
             isDragging = true;
             lastMousePos.x = GET_X_LPARAM(lParam);
             lastMousePos.y = GET_Y_LPARAM(lParam);
@@ -797,7 +877,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         return 0;
 
     case WM_MOUSEMOVE:
-        if (isDragging && g_currentTab == 1) {
+        if (isDragging && g_currentTab != 0) {
             POINT currentPos;
             currentPos.x = GET_X_LPARAM(lParam);
             currentPos.y = GET_Y_LPARAM(lParam);
@@ -1082,6 +1162,7 @@ bool init_graphics(int width, int height, const char* title) {
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         xLabel + 190, yPos, 180, 30,
         g_hWnd, (HMENU)IDC_CLEAR_BUTTON, hInst, NULL);
+
     yPos += 40;
 
     int y2Pos = 60;
@@ -1126,6 +1207,18 @@ bool init_graphics(int width, int height, const char* title) {
         hInst,
         NULL
     );
+    // Кнопка "Удалить" 
+    g_hDeleteButton = CreateWindowW(
+        L"BUTTON",
+        L"X",
+        WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 0, 0,                 // позицию/размер выставляем в update_delete_button_position()
+        g_hWnd,
+        (HMENU)IDC_DELETE_BUTTON,
+        hInst,
+        NULL
+    );
+    ShowWindow(g_hDeleteButton, SW_HIDE);
 
     HFONT hFont = CreateFontW(18, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
