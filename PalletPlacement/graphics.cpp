@@ -16,7 +16,7 @@ static HWND g_hTabControl = NULL;
 static HWND g_hCalcButton = NULL;
 static HDC g_hDC = NULL;
 static bool g_running = true;
-static int g_currentTab = 0; // 0 - ввод, 1 - визуализация, 2 визуализация
+static int g_currentTab = 0; // 0 - ввод, 1 - визуализация центр тяжести, 2 визуализация макс объём
 
 // ID элементов управления
 #define IDC_TAB_CONTROL 2000
@@ -359,7 +359,7 @@ void calculate_packing() {
 
         // Запускаем расчёт
         cout << "\nЗапуск расчёта укладки...\n";
-        cout << "Макс. вес паллеты: " << pal->max_mass << " кг\n";
+        cout << "Макс. вес паллеты: " << pal->max_mass << " г\n";
         pallet_handle(pal, total_boxes);
         cout << "Расчёт завершён! Размещено коробок: " << pal->placed_boxes.size() << " для " << index++ << "паллеты." << endl;
         // Освобождаем память
@@ -674,7 +674,7 @@ void render_stats_panel(HDC hdc, pallet* pal_ptr, RECT* panelRect) {
     draw_text_line(hdc, xPos, yPos, buffer);
     yPos += 25;
 
-    sprintf_s(buffer, "Вес: %d / %d кг", pal_ptr->total_mass, pal_ptr->max_mass);
+    sprintf_s(buffer, "Вес: %d / %d г", pal_ptr->total_mass, pal_ptr->max_mass);
     draw_text_line(hdc, xPos, yPos, buffer);
     yPos += 25;
 
@@ -792,7 +792,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             g_state.box_types.push_back(new_box);
 
             char listBuffer[256];
-            sprintf_s(listBuffer, "Размер: %dx%dx%d мм, Вес: %d кг, Кол-во: %d%s",
+            sprintf_s(listBuffer, "Размер: %dx%dx%d мм, Вес: %d г, Кол-во: %d%s",
                 width, height, depth, weight, quantity, full_rotate ? ", Поворот" : "");
             std::wstring wbuffer = utf8_to_wstring(listBuffer);
             SendMessageW(g_hBoxList, LB_ADDSTRING, 0, (LPARAM)wbuffer.c_str());
@@ -910,7 +910,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         FillRect(hdcMem, &clientRect, hBrush);
         DeleteObject(hBrush);
 
-        // Отрисовка в зависимости от активной вкладки
+        //// Отрисовка в зависимости от активной вкладки
+        //if (g_currentTab == 1 && g_state.current_pallet[0] == nullptr) {
+        //    RECT renderRect = clientRect;
+        //    renderRect.top = 55;
+
+        //    FillRect(hdcMem, &renderRect, hBrush);
+
+        //    HRGN hRgn = CreateRectRgn(renderRect.left, renderRect.top, renderRect.right, renderRect.bottom);
+        //    SelectClipRgn(hdcMem, hRgn);
+
+        //    render_3d_scene(hdcMem, g_state.current_pallet[1], &g_camera);
+
+        //    if (g_state.calculation_done) {
+        //        RECT statsPanel = { g_windowWidth - 380, 60, g_windowWidth - 10, 520 };
+        //        render_stats_panel(hdcMem, g_state.current_pallet[1], &statsPanel);
+        //    }
+
+        //    SelectClipRgn(hdcMem, NULL);
+        //    DeleteObject(hRgn);
+        //}
         if (g_currentTab == 1 && g_state.current_pallet[0]) {
             RECT renderRect = clientRect;
             renderRect.top = 55;
@@ -930,7 +949,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             SelectClipRgn(hdcMem, NULL);
             DeleteObject(hRgn);
         }
-        if (g_currentTab == 2 && g_state.current_pallet[1]) {
+        if ( (g_currentTab == 2 && g_state.current_pallet[1]) || (g_currentTab == 1 && g_state.current_pallet[0] == nullptr ))  {
             RECT renderRect = clientRect;
             renderRect.top = 55;
 
@@ -988,7 +1007,6 @@ bool init_graphics(int width, int height, const char* title) {
     g_windowWidth = width;
     g_windowHeight = height;
 
-    // Инициализация Common Controls
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
     icex.dwICC = ICC_TAB_CLASSES;
@@ -999,7 +1017,7 @@ bool init_graphics(int width, int height, const char* title) {
     wc.hInstance = GetModuleHandle(NULL);
     wc.lpszClassName = L"PalletVisualizerClass";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.style = CS_HREDRAW | CS_VREDRAW; // Добавьте эту строку
+    wc.style = CS_HREDRAW | CS_VREDRAW; 
 
     RegisterClassW(&wc);
 
@@ -1083,7 +1101,7 @@ bool init_graphics(int width, int height, const char* title) {
     SetDlgItemInt(g_hWnd, IDC_P_DEPTH_EDIT, PALLET_Z, FALSE);
     yPos += lineHeight;
 
-    g_hPMaxMassLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Макс. вес (кг):").c_str(),
+    g_hPMaxMassLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Макс. вес (г):").c_str(),
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
     g_hPMaxMassEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
@@ -1135,7 +1153,7 @@ bool init_graphics(int width, int height, const char* title) {
         g_hWnd, (HMENU)IDC_QUANTITY_EDIT, hInst, NULL);
     yPos += lineHeight;
 
-    g_hWeightLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Вес (кг):").c_str(),
+    g_hWeightLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Вес (г):").c_str(),
         WS_CHILD | WS_VISIBLE | SS_LEFT,
         xLabel, yPos, labelWidth, 20, g_hWnd, NULL, hInst, NULL);
     g_hWeightEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"20",
