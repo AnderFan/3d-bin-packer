@@ -39,6 +39,7 @@ static int g_currentTab = 0; // 0 - ввод, 1 - визуализация це�
 #define IDC_CLEAR_BUTTON    3014
 #define IDC_BOX_LIST        3015
 #define IDC_DELETE_BUTTON   3016
+#define IDC_MAX_QTY_CHECK   3017
 
 // Дескрипторы элементов управления для вкладки ввода
 static HWND g_hPWidthEdit = NULL;
@@ -72,6 +73,7 @@ static HWND g_hQuantityLabel = NULL;
 static HWND g_hWeightLabel = NULL;
 static HWND g_hMethodLabel = NULL;
 static HWND g_hBoxListLabel = NULL;
+static HWND g_hMaxQtyCheck = NULL;
 
 struct Point3D {
     float x, y, z;
@@ -90,7 +92,22 @@ static void hide_delete_button() {
         ShowWindow(g_hDeleteButton, SW_HIDE);
     }
 }
+static void update_quantity_edit_enabled() {
+    if (!g_hQuantityEdit || !g_hMaxQtyCheck) return;
 
+    bool maxChecked = (SendMessageW(g_hMaxQtyCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+
+    EnableWindow(g_hQuantityEdit, maxChecked ? FALSE : TRUE);
+}
+static void update_add_button_enabled() {
+    if (!g_hAddButton) return;
+
+    bool hMaxQtyCheck = (IsDlgButtonChecked(g_hWnd, IDC_MAX_QTY_CHECK) == BST_CHECKED);
+
+    bool boxes_q = g_state.box_types.size() != 0;
+
+    EnableWindow(g_hAddButton, (hMaxQtyCheck && boxes_q) ? FALSE : TRUE);
+}
 static void update_delete_button_position() {
     if (!g_hWnd || !g_hBoxList || !g_hDeleteButton) return;
 
@@ -169,7 +186,7 @@ void show_input_controls(bool show) {
     ShowWindow(g_hCenterMassCheck, cmd);
     ShowWindow(g_hMaxVolumeCheck, cmd);
 	ShowWindow(g_hCalcButton, cmd);
-
+    ShowWindow(g_hMaxQtyCheck, cmd);
     if (show) update_delete_button_position();
     else hide_delete_button();
 }
@@ -241,11 +258,20 @@ void calculate_packing() {
 
     bool center_mass_checked = IsDlgButtonChecked(g_hWnd, IDC_SET_CENTER_MASS) == BST_CHECKED;
     bool max_volume_checked = IsDlgButtonChecked(g_hWnd, IDC_SET_MAX_VOLUME) == BST_CHECKED;
-    
+
     if (!center_mass_checked && !max_volume_checked) {
         MessageBoxW(g_hWnd, L"Выберите хотя бы один метод укладки", L"Ошибка", MB_OK | MB_ICONWARNING);
         return;
     }
+
+    bool hMaxQtyCheck = IsDlgButtonChecked(g_hWnd, IDC_MAX_QTY_CHECK) == BST_CHECKED;
+
+    if (hMaxQtyCheck) {
+         if (g_state.box_types.size() > 1) {
+                MessageBoxW(g_hWnd, L"При включённом режиме максимальной укладки, может быть выбран лишь один тип коробок", L"Ошибка", MB_OK | MB_ICONERROR);
+                return;
+         }
+	}
 
     g_state.pallet_width = pW;
     g_state.pallet_height = pH;
@@ -254,47 +280,30 @@ void calculate_packing() {
     g_state.use_center_mass = center_mass_checked;
     g_state.use_max_volume = max_volume_checked;
 
+    g_state.hMaxQtyCheck = hMaxQtyCheck;
+
     update_tabs();
 
-    //// Создаём коробки из введённых типов
-    //int box_len = 0;
-    //for (const auto& box_type : g_state.box_types) {
-    //    box_len += box_type.Quantity;
-    //}
-    //total_boxes.reserve(box_len);
-
-    //for (const auto& box_type : g_state.box_types) {
-    //    for (int i = 0; i < box_type.Quantity; ++i) {
-    //        box* new_box = new box();
-    //        new_box->xyz_size[0][0] = box_type.width;
-    //        new_box->xyz_size[0][1] = box_type.height;
-    //        new_box->xyz_size[0][2] = box_type.depth;
-
-    //        new_box->xyz_size[1][2] = box_type.width;
-    //        new_box->xyz_size[1][1] = box_type.height;
-    //        new_box->xyz_size[1][0] = box_type.depth;
-
-    //        new_box->xyz_size[2][0] = box_type.width;
-    //        new_box->xyz_size[2][2] = box_type.height;
-    //        new_box->xyz_size[2][1] = box_type.depth;
-
-    //        new_box->mass = box_type.weight;
-    //        new_box->placed = false;
-    //        new_box->full_rotateble = box_type.full_rotateble;
-
-    //        total_boxes.push_back(new_box);
-    //    }
-    //}
+  
     auto create_box_copies = [&]() -> vector<box*> {
         vector<box*> boxes;
-        int box_len = 0;
-        for (const auto& box_type : g_state.box_types) {
-            box_len += box_type.Quantity;
+
+
+        if (!hMaxQtyCheck) {
+            int box_len = 0;
+            for (const auto& box_type : g_state.box_types) {
+                box_len += box_type.Quantity;
+            }
+            boxes.reserve(box_len);
         }
-        boxes.reserve(box_len);
+
 
         for (const auto& box_type : g_state.box_types) {
-            for (int i = 0; i < box_type.Quantity; ++i) {
+            int Quantity = box_type.Quantity;
+
+            if (hMaxQtyCheck) Quantity = 1;
+
+            for (int i = 0; i < Quantity; ++i) {
                 box* new_box = new box();
                 new_box->xyz_size[0][0] = box_type.width;
                 new_box->xyz_size[0][1] = box_type.height;
@@ -326,7 +335,9 @@ void calculate_packing() {
             g_state.pallet_height,
             g_state.pallet_depth,
             g_state.pallet_max_mass,
-            center_mass_or_max_volume
+            center_mass_or_max_volume,
+            g_state.hMaxQtyCheck
+
         ));
     }
     if (g_state.use_max_volume) {
@@ -337,7 +348,8 @@ void calculate_packing() {
             g_state.pallet_height,
             g_state.pallet_depth,
             g_state.pallet_max_mass,
-            center_mass_or_max_volume
+            center_mass_or_max_volume,
+            g_state.hMaxQtyCheck
         ));
     }
 
@@ -797,12 +809,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             std::wstring wbuffer = utf8_to_wstring(listBuffer);
             SendMessageW(g_hBoxList, LB_ADDSTRING, 0, (LPARAM)wbuffer.c_str());
 
+            update_add_button_enabled();
             return 0;
         }
         else if (LOWORD(wParam) == IDC_CLEAR_BUTTON) {
             g_state.box_types.clear();
             SendMessage(g_hBoxList, LB_RESETCONTENT, 0, 0);
             hide_delete_button();
+            update_add_button_enabled();
             return 0;
         }
         else if (LOWORD(wParam) == IDC_BOX_LIST && HIWORD(wParam) == LBN_SELCHANGE) {
@@ -828,6 +842,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 SendMessageW(g_hBoxList, LB_SETCURSEL, (WPARAM)newSel, 0);
             }
             update_delete_button_position();
+            update_add_button_enabled();
+            return 0;
+        }
+        else if (LOWORD(wParam) == IDC_MAX_QTY_CHECK) {
+            update_quantity_edit_enabled();
+            update_add_button_enabled();
             return 0;
         }
         break;
@@ -1151,6 +1171,13 @@ bool init_graphics(int width, int height, const char* title) {
         WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
         xEdit, yPos - 3, editWidth, 25,
         g_hWnd, (HMENU)IDC_QUANTITY_EDIT, hInst, NULL);
+
+    std::wstring max_q_box = utf8_to_wstring("Макс.");
+    g_hMaxQtyCheck = CreateWindowW(L"BUTTON", max_q_box.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        xEdit + editWidth + 3, yPos, 60, 20,
+        g_hWnd, (HMENU)IDC_MAX_QTY_CHECK, hInst, NULL);
+    update_quantity_edit_enabled();
     yPos += lineHeight;
 
     g_hWeightLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Вес (г):").c_str(),
@@ -1174,6 +1201,7 @@ bool init_graphics(int width, int height, const char* title) {
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         xLabel, yPos, 180, 30,
         g_hWnd, (HMENU)IDC_ADD_BUTTON, hInst, NULL);
+    update_add_button_enabled();
 
     std::wstring clearButtonText = utf8_to_wstring("Очистить список");
     g_hClearButton = CreateWindowW(L"BUTTON", clearButtonText.c_str(),
@@ -1184,7 +1212,7 @@ bool init_graphics(int width, int height, const char* title) {
     yPos += 40;
 
     int y2Pos = 60;
-	int x2Label = xLabel + 440;
+	int x2Label = xLabel + 450;
 
     g_hBoxListLabel = CreateWindowW(L"STATIC", utf8_to_wstring("Добавленные типы коробок:").c_str(),
         WS_CHILD | WS_VISIBLE | SS_LEFT,

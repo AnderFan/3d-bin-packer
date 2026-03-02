@@ -30,6 +30,8 @@ struct GUIState {
     bool use_center_mass = false;
     bool use_max_volume = false;
 
+	bool hMaxQtyCheck = false; // Флаг для ограничения количества коробок
+
     // Список добавленных коробок
     vector<box_property> box_types;
 

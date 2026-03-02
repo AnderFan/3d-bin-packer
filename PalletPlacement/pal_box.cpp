@@ -18,6 +18,7 @@
     #define DEBUG_LOG_ENDL(x)
 #endif
 
+
 void height_map_init(pallet* pal_ptr) {
 	int W = pal_ptr->xyz_size[0];
 	int D = pal_ptr->xyz_size[2];
@@ -30,28 +31,54 @@ bool is_placement_possible(pallet* pallet_ptr, vector<box*> total_boxes) {
 	DEBUG_LOG_ENDL("Коробок в total_boxes: " << total_boxes.size());
 	DEBUG_LOG_ENDL("Зон доступно: " << pallet_ptr->zone_vector.size());
 	
-	bool flag = false;
-	for (int i = 0; i < total_boxes.size(); i++) { // проходимся по коробкам
-		DEBUG_LOG_ENDL("  Box[" << i << "] placed=" << (bool)total_boxes[i]->placed);
-		if (total_boxes[i]->placed == false) { // если есть хоть одна коробка которая не размещена
-			DEBUG_LOG_ENDL(">>> Найдена неразмещённая коробка, продолжаем");
-			return true;
-		}
-	}
 
-
-	if (flag == false) {
-		DEBUG_LOG_ENDL(">>> Все коробки уже размещены");
-		return false; // все коробки уже размещены
-	}
-
-	if (pallet_ptr->zone_vector.size() > 0) { // если есть хоть одна живая зона
+	bool flag_zone = false, flag_box = false;
+	if (pallet_ptr->zone_vector.size() > 0) { 
 		DEBUG_LOG_ENDL(">>> Есть доступные зоны для размещения коробок");
-		return true;
+		flag_zone = true;
+	} // если есть хоть одна живая зона
+
+	if (pallet_ptr->hMaxQtyCheck == false) { // если кол-во коробок ограничено, то проверяем есть ли неразмещённые коробки
+		for (int i = 0; i < total_boxes.size(); i++) {
+			DEBUG_LOG_ENDL("  Box[" << i << "] placed=" << (bool)total_boxes[i]->placed);
+			if (total_boxes[i]->placed == false) {
+				DEBUG_LOG_ENDL(">>> Найдена неразмещённая коробка, продолжаем");
+				flag_box = true;
+			}
+		} // если есть хоть одна коробка которая не размещена
+	}
+	else {
+		flag_box = true;
 	}
 
-	DEBUG_LOG_ENDL(">>> Нет доступных зон!");
-	return false;
+
+
+
+
+	if (flag_zone && flag_box) return true;
+
+	//bool flag = false;
+	//for (int i = 0; i < total_boxes.size(); i++) { // проходимся по коробкам
+	//	DEBUG_LOG_ENDL("  Box[" << i << "] placed=" << (bool)total_boxes[i]->placed);
+	//	if (total_boxes[i]->placed == false) { // если есть хоть одна коробка которая не размещена
+	//		DEBUG_LOG_ENDL(">>> Найдена неразмещённая коробка, продолжаем");
+	//		return true;
+	//	}
+	//}
+
+
+	//if (flag == false) {
+	//	DEBUG_LOG_ENDL(">>> Все коробки уже размещены");
+	//	return false; // все коробки уже размещены
+	//}
+
+	//if (pallet_ptr->zone_vector.size() > 0) { // если есть хоть одна живая зона
+	//	DEBUG_LOG_ENDL(">>> Есть доступные зоны для размещения коробок");
+	//	return true;
+	//}
+
+	//DEBUG_LOG_ENDL(">>> Нет доступных зон!");
+	//return false;
 }
 
 

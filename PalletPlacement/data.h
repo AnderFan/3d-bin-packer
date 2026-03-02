@@ -78,14 +78,18 @@ struct zone {
 
 	int center_mass_or_max_volume = 0; // 0 - центр масс, 1 - объем
 
+	bool hMaxQtyCheck = false; // Если true, то кол-во коробок не ограничено.
+
     // Конструктор для инициализации размеров
-    pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z, int maxMass = PALLET_MAX_MASS, int centerMassOrMaxVolume = 0) 
-        : xyz_size{ x, y, z }, max_mass(maxMass), center_mass_or_max_volume(centerMassOrMaxVolume) {
+    pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z, int maxMass = PALLET_MAX_MASS, int centerMassOrMaxVolume = 0, bool hMaxQtyCheck = false)
+        : xyz_size{ x, y, z }, max_mass(maxMass), center_mass_or_max_volume(centerMassOrMaxVolume), hMaxQtyCheck(hMaxQtyCheck) {
         ideal_cx = x / 2.0;
 		ideal_cy = 0.0;
         ideal_cz = z / 2.0;
         zone_vector.push_back(new zone{ {0, 0, 0}, {x, y, z}, true });
     }
+
+
 
 	//// ✅ ИСПРАВЛЕННЫЙ конструктор - с ФИГУРНЫМИ СКОБКАМИ в конце!
 	//pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z,

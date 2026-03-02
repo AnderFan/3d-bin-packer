@@ -3,6 +3,18 @@
 #include <algorithm>
 using namespace std;
 
+box* clone_box(const box* src) {
+    if (!src) return nullptr;
+
+    box* b = new box(*src);   // копирует размеры, массу, full_rotateble и т.д.
+    b->placed = false;
+    b->rotate = 0;
+    b->xyz[0] = b->xyz[1] = b->xyz[2] = -1;
+    b->temp_xz[0] = b->temp_xz[1] = -1;
+    b->scores = { INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX };
+    return b;
+}
+
 void sort_boxes(vector<box*> total_boxes) {
     std::sort(total_boxes.begin(), total_boxes.end(), [](const box* a, const box* b) {
         int vol_a = a->xyz_size[0][0] * a->xyz_size[0][1] * a->xyz_size[0][2];
@@ -17,8 +29,41 @@ void sort_boxes(vector<box*> total_boxes) {
         });
 }
 
+void centering_box (pallet* pal_ptr) {
+    int max_x = 0, max_z = 0;
+	for (const auto& box_ptr : pal_ptr->placed_boxes) { // находим макс координаты по x и z среди размещенных коробок
+        int r = box_ptr->rotate;
+        int box_x_end = box_ptr->xyz[0] + box_ptr->xyz_size[r][0];
+        int box_z_end = box_ptr->xyz[2] + box_ptr->xyz_size[r][2];
+        max_x = max(max_x, box_x_end);
+        max_z = max(max_z, box_z_end);
+	}
+    
+    int indent_x = 0, indent_z = 0;
+    if (max_x < pal_ptr->xyz_size[0]) {
+		indent_x = (pal_ptr->xyz_size[0] - max_x) / 2;
+	}
+    if (max_z < pal_ptr->xyz_size[2]) {
+        indent_z = (pal_ptr->xyz_size[2] - max_z) / 2;
+    }
+
+	for (auto& box_ptr : pal_ptr->placed_boxes) { // смещаем все коробки на indent_x и indent_z, чтобы центрировать по x и z
+		box_ptr->xyz[0] += indent_x;
+		box_ptr->xyz[2] += indent_z;
+    }
+
+    pal_ptr->xyz_mass_centre[0] += indent_x;
+    pal_ptr->xyz_mass_centre[2] += indent_z;
+}
+
 void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
     sort_boxes(total_boxes);
+
+    // Если выбран режим Макс  докидывать коробки одного типа бесконечно
+    const box* unlimited_template = nullptr;
+    if (pal_ptr->hMaxQtyCheck) {
+        unlimited_template = total_boxes.front(); // один тип: берем первый как шаблон
+    }
 
     cout << "Всего коробок: " << total_boxes.size() << endl;
 	cout << "Кол-во ЗОН " << pal_ptr->zone_vector.size() << endl;
@@ -34,6 +79,13 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
 
     while (is_placement_possible(pal_ptr, total_boxes)) {
         iterations++;
+
+        if (pal_ptr->hMaxQtyCheck && unlimited_template) {
+            // если коробок не осталось
+            if (total_boxes.empty()) {
+                total_boxes.push_back(clone_box(unlimited_template));
+            }
+        }
 
         check_meb(pal_ptr, total_boxes);
 
@@ -92,6 +144,7 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
         }
     }
 
+	centering_box(pal_ptr);
  
     cout << "\n========== Размещение завершено ==========\n";
     cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size() << endl;
@@ -125,136 +178,4 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
         cout << "WARNING: Достигнут лимит итераций (" << max_iterations << ")\n";
     }
 }
-//void pallet_handle(pallet* pal_ptr) {  // обработчик паллета
-//    cout << "Всего коробок: "<< total_boxes.size() << endl;
-//    zone* pal_zone_ptr;
-//    box* placed_box_ptr = nullptr;
-//    height_map_init(pal_ptr);
-//    cout << "Начинаем размещение коробок на паллете\n";
-//    while (is_placement_possible(pal_ptr)) {
-//        check_meb(pal_ptr);
-//        pal_zone_ptr = select_zone(pal_ptr);
-//        placed_box_ptr = box_placement_handle(pal_ptr, pal_zone_ptr);
-//        if (placed_box_ptr) {
-//            celebrate();
-//            split_zone(pal_ptr, pal_zone_ptr, placed_box_ptr);
-//            zone_cleanup(pal_ptr);
-//            cout << "Зон щас:" << pal_ptr->zone_vector.size() << endl;
-//            cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size() << endl;
-//        }
-//        else
-//        {
-//            if (merge_any_pair_XYZ(pal_ptr)) {
-//                zone_cleanup(pal_ptr);
-//                pal_ptr->failed_in_row++;
-//                continue;
-//            }
-//            cout << "Убираем зону из доступных\n";
-//            kill_zone(pal_ptr, pal_zone_ptr);
-//        }
-//    }
-//    cout << "Размещение завершено\n";
-//    cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size() << endl;
-//    cout << "Максимальная высота " << pal_ptr->max_height_box << endl;
-//    cout << "Вес паллеты " << pal_ptr->total_mass << " | " << pal_ptr->max_mass << endl;
-//
-//    int total_volume = pal_ptr->xyz_size[0] * pal_ptr->xyz_size[1] * pal_ptr->xyz_size[2];
-//    int used_volume = 0;
-//    for (const auto& box_ptr : pal_ptr->placed_boxes) {
-//        int r = box_ptr->rotate;
-//        used_volume += box_ptr->xyz_size[r][0] * box_ptr->xyz_size[r][1] * box_ptr->xyz_size[r][2];
-//    }
-//    cout << "Заполнено объема: " << used_volume << " из " << total_volume << " (" << (used_volume * 100.0) / total_volume << "%)" << endl;
-//
-//    cout << "Осталось неразмещенных коробок: " << total_boxes.size() << endl;
-//    for (auto& box_ptr : total_boxes) {
-//        if (box_ptr->placed == false) {
-//            cout << "Коробка размером (" << box_ptr->xyz_size[0][0] << ", " << box_ptr->xyz_size[0][1] << ", " << box_ptr->xyz_size[0][2] << ") не была размещена\n";
-//        }
-//    }
-//}
-//void pallet_handle(pallet* pal_ptr) {
-//    cout << "Starting pallet placement algorithm..." << endl;
-//    
-//    height_map_init(pal_ptr); // Initialize height map
-//    
-//    zone* initial_zone = new zone;
-//    initial_zone->xyz[0] = 0;
-//    initial_zone->xyz[1] = 0;
-//    initial_zone->xyz[2] = 0;
-//    initial_zone->xyz_size[0] = pal_ptr->xyz_size[0];
-//    initial_zone->xyz_size[1] = pal_ptr->xyz_size[1];
-//    initial_zone->xyz_size[2] = pal_ptr->xyz_size[2];
-//    
-//    pal_ptr->zone_vector.push_back(initial_zone);
-//    
-//    int iteration = 0;
-//    const int MAX_ITERATIONS = 10000;
-//    
-//    while (is_placement_possible(pal_ptr) && iteration < MAX_ITERATIONS) {
-//        iteration++;
-//        
-//        cout << "\n=== Iteration " << iteration << " ===" << endl;
-//        cout << "Available zones: " << pal_ptr->zone_vector.size() << endl;
-//        cout << "Remaining boxes: " << total_boxes.size() << endl;
-//        
-//        zone* selected_zone = select_zone(pal_ptr);
-//        
-//        if (!selected_zone) {
-//            cout << "No suitable zone found, ending placement" << endl;
-//            break;
-//        }
-//        
-//        box* placed_box = box_placement_handle(pal_ptr, selected_zone);
-//        
-//        if (!placed_box) {
-//            cout << "Failed to place box in selected zone" << endl;
-//            kill_zone(pal_ptr, selected_zone);
-//            zone_cleanup(pal_ptr);
-//            
-//            if (pal_ptr->failed_in_row > 5) {
-//                check_meb(pal_ptr);
-//                pal_ptr->failed_in_row = 0;
-//            }
-//    int iteration = 0;
-//    const int MAX_ITERATIONS = 10000;
-//    
-//    while (is_placement_possible(pal_ptr) && iteration < MAX_ITERATIONS) {
-//        iteration++;
-//        
-//        cout << "\n=== Iteration " << iteration << " ===" << endl;
-//        cout << "Available zones: " << pal_ptr->zone_vector.size() << endl;
-//        cout << "Remaining boxes: " << total_boxes.size() << endl;
-//        
-//        zone* selected_zone = select_zone(pal_ptr);
-//        
-//        if (!selected_zone) {
-//            cout << "No suitable zone found, ending placement" << endl;
-//            break;
-//        }
-//        
-//        box* placed_box = box_placement_handle(pal_ptr, selected_zone);
-//        
-//        if (!placed_box) {
-//            cout << "Failed to place box in selected zone" << endl;
-//            kill_zone(pal_ptr, selected_zone);
-//            zone_cleanup(pal_ptr);
-//            
-//            if (pal_ptr->failed_in_row > 5) {
-//                check_meb(pal_ptr);
-//                pal_ptr->failed_in_row = 0;
-//            }
-//            continue;
-//        }
-//        
-//        celebrate();
-//        split_zone(pal_ptr, selected_zone, placed_box);
-//        zone_cleanup(pal_ptr);
-//        check_meb(pal_ptr);
-//    }
-//    
-//    cout << "\nPlacement complete!" << endl;
-//    cout << "Total boxes placed: " << pal_ptr->placed_boxes.size() << endl;
-//    cout << "Total weight: " << pal_ptr->total_mass << " kg" << endl;
-//    cout << "Max height: " << pal_ptr->max_height_box << " cm" << endl;
-//}
+
