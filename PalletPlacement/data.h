@@ -79,15 +79,16 @@ struct zone {
 	int center_mass_or_max_volume = 0; // 0 - центр масс, 1 - объем
 
 	bool hMaxQtyCheck = false; // Если true, то кол-во коробок не ограничено.
+	bool lim_lay = false; // Запретить неполные слои. Только если hMaxQtyCheck = true.	
 
     // Конструктор для инициализации размеров
-    pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z, int maxMass = PALLET_MAX_MASS, int centerMassOrMaxVolume = 0, bool hMaxQtyCheck = false)
-        : xyz_size{ x, y, z }, max_mass(maxMass), center_mass_or_max_volume(centerMassOrMaxVolume), hMaxQtyCheck(hMaxQtyCheck) {
-        ideal_cx = x / 2.0;
-		ideal_cy = 0.0;
-        ideal_cz = z / 2.0;
-        zone_vector.push_back(new zone{ {0, 0, 0}, {x, y, z}, true });
-    }
+    pallet(int x = PALLET_X, int y = PALLET_Y, int z = PALLET_Z, int maxMass = PALLET_MAX_MASS, int centerMassOrMaxVolume = 0, bool hMaxQtyCheck = false, bool lim_lay = false)
+        : xyz_size{ x, y, z }, max_mass(maxMass), center_mass_or_max_volume(centerMassOrMaxVolume), hMaxQtyCheck(hMaxQtyCheck), lim_lay(lim_lay) {
+         ideal_cx = x / 2.0;
+ 		ideal_cy = 0.0;
+         ideal_cz = z / 2.0;
+         zone_vector.push_back(new zone{ {0, 0, 0}, {x, y, z}, true });
+     }
 
 
 

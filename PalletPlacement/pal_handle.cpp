@@ -144,6 +144,36 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
         }
     }
 
+    if (pal_ptr->lim_lay) {
+        if (pal_ptr->placed_boxes.empty()) {
+            // нечего удалять
+        }
+        else {
+            int w_p = pal_ptr->xyz_size[0];
+            int d_p = pal_ptr->xyz_size[2];
+
+            box* b0 = pal_ptr->placed_boxes.front();
+            int r = b0->rotate;
+            int w_b = b0->xyz_size[r][0];
+            int d_b = b0->xyz_size[r][2];
+
+            // защита от деления на 0
+            if (w_b > 0 && d_b > 0) {
+                int qbox_lay = (w_p * d_p) / (w_b * d_b); // сколько коробок в ПОЛНОМ слое (идеально)
+                if (qbox_lay > 0) {
+                    int placed = (int)pal_ptr->placed_boxes.size();
+                    int full_layers = placed / qbox_lay;
+                    int need_box = full_layers * qbox_lay;              // оставить только целые слои
+                    int del_box = placed - need_box;                    // удалить только неполный хвост
+
+                    for (int i = 0; i < del_box; ++i) {
+                        pal_ptr->placed_boxes.pop_back();
+                    }
+                }
+            }
+        }
+    }
+
 	centering_box(pal_ptr);
  
     cout << "\n========== Размещение завершено ==========\n";

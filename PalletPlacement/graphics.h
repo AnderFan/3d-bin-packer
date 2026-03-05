@@ -31,6 +31,7 @@ struct GUIState {
     bool use_max_volume = false;
 
 	bool hMaxQtyCheck = false; // Флаг для ограничения количества коробок
+	bool hLimLayCheck = false; // Новый флаг из чекбокса "Параметры размещения"
 
     // Список добавленных коробок
     vector<box_property> box_types;

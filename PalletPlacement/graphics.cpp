@@ -40,6 +40,7 @@ static int g_currentTab = 0; // 0 - ввод, 1 - визуализация це�
 #define IDC_BOX_LIST        3015
 #define IDC_DELETE_BUTTON   3016
 #define IDC_MAX_QTY_CHECK   3017
+#define IDC_LIM_LAY_CHECK 3018
 
 // Дескрипторы элементов управления для вкладки ввода
 static HWND g_hPWidthEdit = NULL;
@@ -74,6 +75,7 @@ static HWND g_hWeightLabel = NULL;
 static HWND g_hMethodLabel = NULL;
 static HWND g_hBoxListLabel = NULL;
 static HWND g_hMaxQtyCheck = NULL;
+static HWND g_hLimLayCheck = NULL;
 
 struct Point3D {
     float x, y, z;
@@ -99,7 +101,7 @@ static void update_quantity_edit_enabled() {
 
     EnableWindow(g_hQuantityEdit, maxChecked ? FALSE : TRUE);
 }
-static void update_add_button_enabled() {
+static void update_maxQty_enabled() {
     if (!g_hAddButton) return;
 
     bool hMaxQtyCheck = (IsDlgButtonChecked(g_hWnd, IDC_MAX_QTY_CHECK) == BST_CHECKED);
@@ -107,6 +109,13 @@ static void update_add_button_enabled() {
     bool boxes_q = g_state.box_types.size() != 0;
 
     EnableWindow(g_hAddButton, (hMaxQtyCheck && boxes_q) ? FALSE : TRUE);
+
+	EnableWindow(g_hLimLayCheck, (hMaxQtyCheck) ? TRUE : FALSE);
+
+
+
+
+    
 }
 static void update_delete_button_position() {
     if (!g_hWnd || !g_hBoxList || !g_hDeleteButton) return;
@@ -187,6 +196,7 @@ void show_input_controls(bool show) {
     ShowWindow(g_hMaxVolumeCheck, cmd);
 	ShowWindow(g_hCalcButton, cmd);
     ShowWindow(g_hMaxQtyCheck, cmd);
+    ShowWindow(g_hLimLayCheck, cmd);
     if (show) update_delete_button_position();
     else hide_delete_button();
 }
@@ -272,6 +282,7 @@ void calculate_packing() {
                 return;
          }
 	}
+    bool lim_lay = IsDlgButtonChecked(g_hWnd, IDC_LIM_LAY_CHECK) == BST_CHECKED;
 
     g_state.pallet_width = pW;
     g_state.pallet_height = pH;
@@ -281,6 +292,8 @@ void calculate_packing() {
     g_state.use_max_volume = max_volume_checked;
 
     g_state.hMaxQtyCheck = hMaxQtyCheck;
+
+	g_state.hLimLayCheck = lim_lay;
 
     update_tabs();
 
@@ -336,7 +349,8 @@ void calculate_packing() {
             g_state.pallet_depth,
             g_state.pallet_max_mass,
             center_mass_or_max_volume,
-            g_state.hMaxQtyCheck
+            g_state.hMaxQtyCheck,
+            g_state.hLimLayCheck
 
         ));
     }
@@ -349,7 +363,8 @@ void calculate_packing() {
             g_state.pallet_depth,
             g_state.pallet_max_mass,
             center_mass_or_max_volume,
-            g_state.hMaxQtyCheck
+            g_state.hMaxQtyCheck,
+            g_state.hLimLayCheck
         ));
     }
 
@@ -809,14 +824,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             std::wstring wbuffer = utf8_to_wstring(listBuffer);
             SendMessageW(g_hBoxList, LB_ADDSTRING, 0, (LPARAM)wbuffer.c_str());
 
-            update_add_button_enabled();
+            update_maxQty_enabled();
             return 0;
         }
         else if (LOWORD(wParam) == IDC_CLEAR_BUTTON) {
             g_state.box_types.clear();
             SendMessage(g_hBoxList, LB_RESETCONTENT, 0, 0);
             hide_delete_button();
-            update_add_button_enabled();
+            update_maxQty_enabled();
             return 0;
         }
         else if (LOWORD(wParam) == IDC_BOX_LIST && HIWORD(wParam) == LBN_SELCHANGE) {
@@ -842,12 +857,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 SendMessageW(g_hBoxList, LB_SETCURSEL, (WPARAM)newSel, 0);
             }
             update_delete_button_position();
-            update_add_button_enabled();
+            update_maxQty_enabled();
             return 0;
         }
         else if (LOWORD(wParam) == IDC_MAX_QTY_CHECK) {
             update_quantity_edit_enabled();
-            update_add_button_enabled();
+            update_maxQty_enabled();
             return 0;
         }
         break;
@@ -1201,7 +1216,7 @@ bool init_graphics(int width, int height, const char* title) {
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         xLabel, yPos, 180, 30,
         g_hWnd, (HMENU)IDC_ADD_BUTTON, hInst, NULL);
-    update_add_button_enabled();
+    update_maxQty_enabled();
 
     std::wstring clearButtonText = utf8_to_wstring("Очистить список");
     g_hClearButton = CreateWindowW(L"BUTTON", clearButtonText.c_str(),
@@ -1241,6 +1256,15 @@ bool init_graphics(int width, int height, const char* title) {
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
         x2Label + 220, y2Pos, 250, 20,
         g_hWnd, (HMENU)IDC_SET_MAX_VOLUME, hInst, NULL);
+
+    y2Pos += 25;
+
+    std::wstring limLayText = utf8_to_wstring("Запретить неполные слои (если включен Макс. кол-во)");
+    g_hLimLayCheck = CreateWindowW(L"BUTTON", limLayText.c_str(),
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        x2Label, y2Pos, 470, 20,
+        g_hWnd, (HMENU)IDC_LIM_LAY_CHECK, hInst, NULL);
+	EnableWindow(g_hLimLayCheck, FALSE);
 
     // Кнопка расчёта/новой укладки
     g_hCalcButton = CreateWindowW(
