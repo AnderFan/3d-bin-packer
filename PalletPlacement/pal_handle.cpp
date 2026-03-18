@@ -3,6 +3,43 @@
 #include <algorithm>
 using namespace std;
 
+static void rebuild_pallet_state(pallet* pal_ptr) {
+    if (!pal_ptr) return;
+
+    pal_ptr->total_mass = 0;
+    pal_ptr->xyz_mass_centre[0] = 0;
+    pal_ptr->xyz_mass_centre[1] = 0;
+    pal_ptr->xyz_mass_centre[2] = 0;
+    pal_ptr->max_height_box = 0;
+
+    height_map_init(pal_ptr);
+
+    for (auto* b : pal_ptr->placed_boxes) {
+        if (!b) continue;
+
+        // пересчет max height
+        int r = b->rotate;
+        pal_ptr->max_height_box = std::max(pal_ptr->max_height_box, b->xyz[1] + b->xyz_size[r][1]);
+
+        // пересчет массы + центра масс (через вашу же логику)
+        // ВАЖНО: center_mass_calculate использует текущие total_mass/xyz_mass_centre, поэтому сначала pal_ptr->total_mass=0.
+        center_mass_calculate(pal_ptr, b);
+
+        // пересчет height_map (аналогично place_box)
+        int x_start = b->xyz[0];
+        int x_end = x_start + b->xyz_size[r][0];
+        int z_start = b->xyz[2];
+        int z_end = z_start + b->xyz_size[r][2];
+        int new_height = b->xyz[1] + b->xyz_size[r][1];
+
+        for (int x = x_start; x < x_end; ++x) {
+            for (int z = z_start; z < z_end; ++z) {
+                pal_ptr->height_map[x][z] = std::max(pal_ptr->height_map[x][z], new_height);
+            }
+        }
+    }
+}
+
 box* clone_box(const box* src) {
     if (!src) return nullptr;
 
@@ -15,7 +52,7 @@ box* clone_box(const box* src) {
     return b;
 }
 
-void sort_boxes(vector<box*> total_boxes) {
+void sort_boxes(vector<box*>& total_boxes) {
     std::sort(total_boxes.begin(), total_boxes.end(), [](const box* a, const box* b) {
         int vol_a = a->xyz_size[0][0] * a->xyz_size[0][1] * a->xyz_size[0][2];
         int vol_b = b->xyz_size[0][0] * b->xyz_size[0][1] * b->xyz_size[0][2];
@@ -61,7 +98,7 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
 
     // Если выбран режим Макс  докидывать коробки одного типа бесконечно
     const box* unlimited_template = nullptr;
-    if (pal_ptr->hMaxQtyCheck) {
+    if (pal_ptr->hMaxQtyCheck && !total_boxes.empty()) {
         unlimited_template = total_boxes.front(); // один тип: берем первый как шаблон
     }
 
@@ -72,13 +109,17 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
     height_map_init(pal_ptr);
     cout << "Начинаем размещение коробок на паллете\n";
 
-    int max_iterations = total_boxes.size() * 10; // Лимит итераций
+    int max_iterations = total_boxes.size() * 1000; // Лимит итераций
     int iterations = 0;
     int failed_iterations = 0;
     const int MAX_FAILED = 100; // Если 100 итераций подряд не получилось разместить - выходим
 
     while (is_placement_possible(pal_ptr, total_boxes)) {
         iterations++;
+        if (iterations > max_iterations) {
+            cout << "Достигнут лимит итераций, прекращаем укладку\n";
+            break;
+		}
 
         if (pal_ptr->hMaxQtyCheck && unlimited_template) {
             // если коробок не осталось
@@ -149,28 +190,28 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
             // нечего удалять
         }
         else {
-            int w_p = pal_ptr->xyz_size[0];
-            int d_p = pal_ptr->xyz_size[2];
-
-            box* b0 = pal_ptr->placed_boxes.front();
-            int r = b0->rotate;
-            int w_b = b0->xyz_size[r][0];
-            int d_b = b0->xyz_size[r][2];
-
-            // защита от деления на 0
-            if (w_b > 0 && d_b > 0) {
-                int qbox_lay = (w_p * d_p) / (w_b * d_b); // сколько коробок в ПОЛНОМ слое (идеально)
-                if (qbox_lay > 0) {
-                    int placed = (int)pal_ptr->placed_boxes.size();
-                    int full_layers = placed / qbox_lay;
-                    int need_box = full_layers * qbox_lay;              // оставить только целые слои
-                    int del_box = placed - need_box;                    // удалить только неполный хвост
-
-                    for (int i = 0; i < del_box; ++i) {
-                        pal_ptr->placed_boxes.pop_back();
-                    }
+            int qbox_lay = 0;
+            for (auto& box : pal_ptr->placed_boxes) { // Считаем кол-во коробок в первом слое
+                if (box->xyz[1] == 0) {
+                    qbox_lay++;
+                }
+                else {
+                    break;
                 }
             }
+            if (qbox_lay > 0) {
+                int placed = (int)pal_ptr->placed_boxes.size();
+                int full_layers = placed / qbox_lay;
+                int need_box = full_layers * qbox_lay;              // оставить только целые слои
+                int del_box = placed - need_box;                    // удалить только неполный хвост
+
+                for (int i = 0; i < del_box; ++i) {
+                    box* b = pal_ptr->placed_boxes.back();
+                    pal_ptr->placed_boxes.pop_back();
+                    delete b;
+                }
+            }
+            rebuild_pallet_state(pal_ptr);
         }
     }
 

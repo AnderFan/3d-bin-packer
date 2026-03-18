@@ -1,1 +1,14 @@
-﻿  PalletPlacement.vcxproj -> C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\x64\Debug\PalletPlacement.exe
+﻿  data.h
+  graphics.cpp
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\graphics.cpp(483,37): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+  pal_box.cpp
+  pal_handle.cpp
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\pal_handle.cpp(112,24): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  pal_meb.cpp
+  pal_zone.cpp
+  Generating Code...
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\pal_box.cpp(82,1): warning C4715: 'is_placement_possible': not all control paths return a value
+C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\PalletPlacement\pal_box.cpp(483,1): warning C4715: 'assess_box_in_zone': not all control paths return a value
+  PalletPlacement.vcxproj -> C:\Users\anf\Desktop\pallett\3d-bin-packer_kurs\x64\Debug\PalletPlacement.exe
+  "pwsh.exe" не является внутренней или внешней
+  командой, исполняемой программой или пакетным файлом.

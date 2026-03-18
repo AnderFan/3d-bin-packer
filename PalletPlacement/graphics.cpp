@@ -202,34 +202,66 @@ void show_input_controls(bool show) {
 }
 
 
+//void reset_state_for_new_packing() {
+//
+//    for (auto* pal : g_state.current_pallet) {
+//        if (pal) {
+//            for (auto* box_ptr : pal->placed_boxes) {
+//                delete box_ptr;
+//            }
+//            pal->placed_boxes.clear();
+//
+//            // Удаляем зоны
+//            for (auto* z : pal->zone_vector) {
+//                delete z;
+//            }
+//            pal->zone_vector.clear();
+//
+//            for (auto* z : pal->zone_dead_vector) {
+//                delete z;
+//            }
+//            pal->zone_dead_vector.clear();
+//
+//            pal->placed_boxes.clear();
+//
+//            delete pal;
+//            g_state.current_pallet = { nullptr, nullptr };
+//        }
+//	}
+//    
+//
+//    g_state.calculation_done = false;
+//    g_state.use_center_mass = false;
+//    g_state.use_max_volume = false;
+//}
+
 void reset_state_for_new_packing() {
+    for (auto*& pal : g_state.current_pallet) {
+        if (!pal) continue;
 
-    for (auto* pal : g_state.current_pallet) {
-        if (pal) {
-            for (auto* box_ptr : pal->placed_boxes) {
-                delete box_ptr;
-            }
-            pal->placed_boxes.clear();
-
-            // Удаляем зоны
-            for (auto* z : pal->zone_vector) {
-                delete z;
-            }
-            pal->zone_vector.clear();
-
-            for (auto* z : pal->zone_dead_vector) {
-                delete z;
-            }
-            pal->zone_dead_vector.clear();
-
-            pal->placed_boxes.clear();
-
-            delete pal;
-            g_state.current_pallet = { nullptr, nullptr };
+        for (auto* box_ptr : pal->placed_boxes) {
+            delete box_ptr;
         }
-	}
-    
+        pal->placed_boxes.clear();
 
+        // Сначала удаляем active зоны
+        for (auto* z : pal->zone_vector) {
+            delete z;
+        }
+        pal->zone_vector.clear();
+
+        // Потом удаляем dead зоны, но только если они не были в active
+        for (auto* z : pal->zone_dead_vector) {
+            // после очистки zone_vector совпадений быть не должно, но защита не помешает
+            delete z;
+        }
+        pal->zone_dead_vector.clear();
+
+        delete pal;
+        pal = nullptr;
+    }
+
+    g_state.current_pallet = { nullptr, nullptr };
     g_state.calculation_done = false;
     g_state.use_center_mass = false;
     g_state.use_max_volume = false;

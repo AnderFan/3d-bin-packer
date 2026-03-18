@@ -60,11 +60,32 @@ zone* select_zone(pallet* pallet_ptr) {
 	return best;
 }
 
-void kill_zone(pallet* pallet_ptr, zone* zone) {
-	pallet_ptr->zone_vector.erase(
-		remove(pallet_ptr->zone_vector.begin(), pallet_ptr->zone_vector.end(), zone),
-		pallet_ptr->zone_vector.end()
-	);
+//void kill_zone(pallet* pallet_ptr, zone* zone) {
+//	pallet_ptr->zone_vector.erase(
+//		remove(pallet_ptr->zone_vector.begin(), pallet_ptr->zone_vector.end(), zone),
+//		pallet_ptr->zone_vector.end()
+//	);
+//
+//}
+
+static void unlink_zone(pallet* pallet_ptr, zone* z) {
+	if (!pallet_ptr || !z) return;
+	auto& v = pallet_ptr->zone_vector;
+	v.erase(std::remove(v.begin(), v.end(), z), v.end());
+}
+
+void kill_zone(pallet* pallet_ptr, zone* z) {
+	if (!pallet_ptr || !z) return;
+
+	// Сначала выкинуть из активных
+	unlink_zone(pallet_ptr, z);
+
+	auto& dead = pallet_ptr->zone_dead_vector;
+	if (std::find(dead.begin(), dead.end(), z) != dead.end()) {
+		return;
+	}
+
+	delete z;
 }
 
 void sort_by_xyz_then_size(std::vector<zone*>& zones) { // сортируем зоны по координатам и размерам
