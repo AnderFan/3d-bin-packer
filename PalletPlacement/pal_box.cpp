@@ -410,7 +410,9 @@ int get_max_remaining_box_height(vector<box*> total_boxes) {
 }
 array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz, int bw, int bh, int bd, int mass, double ratio, pallet* pal_ptr, int index, int rotate, vector<box*> total_boxes) {
 
-	int com_y_score, com_center_score;
+	int com_y_score = INT_MAX; 
+	int com_center_score = INT_MAX;
+	int box_center_score = INT_MAX;
 	if (pal_ptr->center_mass_or_max_volume == 0) { // Если укладка по центру масс
 		double cx_box = bx + bw / 2.0;
 		double cy_box = by + bh / 2.0;
@@ -425,8 +427,14 @@ array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz
 		double dz = cm.cz - pal_ptr->ideal_cz;
 		double dist2_xz = dx * dx + dz * dz; 
 
+		double bdx = cx_box - pal_ptr->ideal_cx;
+		double bdz = cz_box - pal_ptr->ideal_cz;
+		double bdist2_xz = bdx * bdx + bdz * bdz;
+
 		com_y_score = (int)std::round(cm.cy * 100.0);      // ниже центр масс по Y
 		com_center_score = (int)std::round(dist2_xz * 100.0);   // ближе к центру по XZ
+		box_center_score = (int)std::round(bdist2_xz * 100.0);
+
 	}
 
 
@@ -475,7 +483,7 @@ array<int, SCORES_NUM> assess_box_in_zone(zone* zone_ptr, int bx, int by, int bz
 	height_diff += (index * 10); // Коробки отсортированы по убыванию. Чем больше индекс у коробки тем она меньше
 
 	if (pal_ptr->center_mass_or_max_volume == 0) { // Если укладка по центру масс
-		return array<int, SCORES_NUM>{ com_center_score, com_y_score, height_diff, waste, long_side, short_side };
+		return array<int, SCORES_NUM>{ com_center_score, com_y_score, box_center_score, height_diff, waste, long_side };
 	}
 	else if (pal_ptr->center_mass_or_max_volume == 1) { // Если укладка по максимальному объему
 		return array<int, SCORES_NUM>{ height_diff, waste, long_side, short_side, INT_MAX, INT_MAX };

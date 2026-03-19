@@ -185,7 +185,7 @@ void pallet_handle(pallet* pal_ptr, vector<box*> total_boxes) {
         }
     }
 
-    if (pal_ptr->lim_lay) {
+    if (pal_ptr->lim_lay && pal_ptr->center_mass_or_max_volume == 0) {
         if (pal_ptr->placed_boxes.empty()) {
             // нечего удалять
         }

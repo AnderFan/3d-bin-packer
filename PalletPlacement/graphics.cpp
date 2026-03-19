@@ -1291,10 +1291,10 @@ bool init_graphics(int width, int height, const char* title) {
 
     y2Pos += 25;
 
-    std::wstring limLayText = utf8_to_wstring("Запретить неполные слои (если включен Макс. кол-во)");
+    std::wstring limLayText = utf8_to_wstring("Запретить неполные слои (Ппри методе макс. объёма)");
     g_hLimLayCheck = CreateWindowW(L"BUTTON", limLayText.c_str(),
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-        x2Label, y2Pos, 470, 20,
+        x2Label + 220, y2Pos, 390, 20,
         g_hWnd, (HMENU)IDC_LIM_LAY_CHECK, hInst, NULL);
 	EnableWindow(g_hLimLayCheck, FALSE);
 
