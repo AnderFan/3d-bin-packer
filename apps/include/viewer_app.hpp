@@ -1,3 +1,3 @@
 #pragma once
-
-int ViewerApp(const int screenWidth, const int screenHeight);
+#include "types.hpp"
+int ViewerApp(const int screenWidth, const int screenHeight, Size pal_size);

@@ -1,18 +1,14 @@
-
 #include "data.h"
-#include "functions.h"
-#include "graphics.h"
+#include "pal_handler.hpp"
 #include "types.hpp"
-#include <algorithm>
-#include <climits>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <list>
 #include <vector>
-#include <windows.h>
 
-int main() {}
+std::pair<std::vector<Box>, Pallet> handler(Pallet pal,
+                                            std::vector<Box> &list_box) {
+
+  pallet_handle(&pal, list_box);
+}
 
 // int main()
 //{

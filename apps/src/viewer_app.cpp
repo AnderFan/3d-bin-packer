@@ -7,20 +7,27 @@
 #include "rcamera.h"
 #include "rlgl.h"
 
-int ViewerApp(const int screenWidth, const int screenHeight) {
+namespace {
+constexpr int DefaultFps = 40;
+constexpr float Fov = 45.0f;
+} // namespace
+
+int ViewerApp(const int screenWidth, const int screenHeight, Size pal_size) {
   InitWindow(screenWidth, screenHeight, "3dBox");
 
   // Define the camera to look into our 3d world
   Camera3D camera{};
-  camera.position = Vector3{0.0f, 1000.0f, 10.0f}; // Camera position
-  camera.target = Vector3{0.0f, 0.0f, 0.0f};       // Camera looking at point
+  camera.position = Vector3{1000.0f, 1000.0f, 10.0f}; // Camera position
+  float target_x = static_cast<float>(pal_size.width / 2);
+  float target_z = static_cast<float>(pal_size.depth / 2);
+  camera.target = Vector3{target_x, 0.0f, target_z}; // Camera looking at point
   camera.up =
       Vector3{0.0f, 1.0f, 0.0f}; // Camera up vector (rotation towards target)
-  camera.fovy = 45.0f;           // Camera field-of-view Y
+  camera.fovy = Fov;             // Camera field-of-view Y
   camera.projection = CAMERA_PERSPECTIVE; // Camera mode type
 
   rlSetClipPlanes(10.0, 20000.0);
-  SetTargetFPS(60); // Set our game to run at 60 frames-per-second
+  SetTargetFPS(DefaultFps); // Set our game to run at 60 frames-per-second
   //--------------------------------------------------------------------------------------
 
   // Main game loop
@@ -38,8 +45,7 @@ int ViewerApp(const int screenWidth, const int screenHeight) {
     BeginMode3D(camera);
 
     test_starter();
-    DrawGrid(1000, 10.0f);
-
+    DrawPalletGrid(pal_size, 10.0f);
     EndMode3D();
 
     float distance = Vector3Distance(camera.position, camera.target);

@@ -1,7 +1,5 @@
-
 #include "data.h"
 #include "functions.h"
-#include "graphics.h"
 #include "types.hpp"
 #include <algorithm>
 #include <climits>
@@ -10,7 +8,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <windows.h>
 
 int main() {}
 

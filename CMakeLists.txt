@@ -34,6 +34,21 @@ target_compile_options(packing_warnings INTERFACE
         $<$<BOOL:${ENABLE_WARNINGS_AS_ERRORS}>:-Werror>
     >
 )
+include(FetchContent)
+
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_WAYLAND ON CACHE BOOL "" FORCE)
+set(GLFW_BUILD_X11 ON CACHE BOOL "" FORCE)
+unset(GLFW_USE_WAYLAND CACHE)
+
+FetchContent_Declare(
+    raylib
+    GIT_REPOSITORY https://github.com/raysan5/raylib.git
+    GIT_TAG        5.5
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(raylib)
 
 add_subdirectory(src)
 add_subdirectory(apps)
