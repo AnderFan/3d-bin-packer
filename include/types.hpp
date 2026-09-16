@@ -13,4 +13,6 @@ struct Size {
   int width{-1};
   int height{-1};
   int depth{-1};
+
+  constexpr bool operator==(const Size &) const = default;
 };

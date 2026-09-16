@@ -1,7 +1,6 @@
 # src/CMakeLists.txt
 
 add_library(packing_solver STATIC
-  logic_handler.cpp
   pal_box.cpp
   pal_handle.cpp
   pal_meb.cpp

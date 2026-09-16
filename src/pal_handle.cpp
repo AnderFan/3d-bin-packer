@@ -1,9 +1,12 @@
-﻿#include "functions.h"
+﻿#include "data.hpp"
+#include "pal_box.hpp"
+#include "pal_meb.hpp"
+#include "pal_zone.hpp"
 #include <algorithm>
+#include <cstddef>
 #include <iostream>
-using namespace std;
-
-static void rebuild_pallet_state(pallet *pal_ptr) {
+#include <ostream>
+static void rebuild_pallet_state(Pallet *pal_ptr) {
   if (!pal_ptr)
     return;
 
@@ -20,21 +23,17 @@ static void rebuild_pallet_state(pallet *pal_ptr) {
       continue;
 
     // пересчет max height
-    int r = b->rotate;
     pal_ptr->max_height_box =
-        std::max(pal_ptr->max_height_box, b->xyz[1] + b->xyz_size[r][1]);
+        std::max(pal_ptr->max_height_box, b->pos.y + b->size.height);
 
-    // пересчет массы + центра масс (через вашу же логику)
-    // ВАЖНО: center_mass_calculate использует текущие
-    // total_mass/xyz_mass_centre, поэтому сначала pal_ptr->total_mass=0.
     center_mass_calculate(pal_ptr, b);
 
     // пересчет height_map (аналогично place_box)
-    int x_start = b->xyz[0];
-    int x_end = x_start + b->xyz_size[r][0];
-    int z_start = b->xyz[2];
-    int z_end = z_start + b->xyz_size[r][2];
-    int new_height = b->xyz[1] + b->xyz_size[r][1];
+    int x_start = b->pos.x;
+    int x_end = x_start + b->size.width;
+    int z_start = b->pos.z;
+    int z_end = z_start + b->size.depth;
+    int new_height = b->pos.y + b->size.height;
 
     for (int x = x_start; x < x_end; ++x) {
       for (int z = z_start; z < z_end; ++z) {
@@ -45,32 +44,33 @@ static void rebuild_pallet_state(pallet *pal_ptr) {
   }
 }
 
-box *clone_box(const box *src) {
+Box *clone_box(const Box *src) {
   if (!src)
     return nullptr;
 
-  box *b = new box(*src); // копирует размеры, массу, full_rotateble и т.д.
+  Box *b = new Box(*src); // копирует размеры, массу, full_rotateble и т.д.
   b->placed = false;
   b->rotate = 0;
-  b->xyz[0] = b->xyz[1] = b->xyz[2] = -1;
-  b->temp_xz[0] = b->temp_xz[1] = -1;
+  b->pos.x = b->pos.y = b->pos.z = -1;
+  b->temp_pos.x = b->temp_pos.y = -1;
   b->scores = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX};
   return b;
 }
 
-void sort_boxes(vector<Box *> &total_boxes) {
-  std::sort(
-      total_boxes.begin(), total_boxes.end(), [](const box *a, const box *b) {
-        int vol_a = a->xyz_size[0][0] * a->xyz_size[0][1] * a->xyz_size[0][2];
-        int vol_b = b->xyz_size[0][0] * b->xyz_size[0][1] * b->xyz_size[0][2];
+void sort_boxes(std::vector<Box *> &total_boxes) {
+  std::sort(total_boxes.begin(), total_boxes.end(),
+            [](const Box *a, const Box *b) {
+              int vol_a = a->size.width * a->size.depth * a->size.height;
+              int vol_b = b->size.depth * b->size.height * b->size.width;
 
-        if (vol_a != vol_b) {
-          return vol_a > vol_b; // Сначала большие по объёму
-        }
+              if (vol_a != vol_b) {
+                return vol_a > vol_b; // Сначала большие по объёму
+              }
 
-        // При равном объёме — сначала более тяжёлые (для лучшего центра масс)
-        return a->mass > b->mass;
-      });
+              // При равном объёме — сначала более тяжёлые (для лучшего центра
+              // масс)
+              return a->mass > b->mass;
+            });
 }
 
 void centering_box(Pallet *pal_ptr) {
@@ -78,59 +78,59 @@ void centering_box(Pallet *pal_ptr) {
   for (const auto &box_ptr :
        pal_ptr->placed_boxes) { // находим макс координаты по x и z среди
                                 // размещенных коробок
-    int r = box_ptr.rotate;
-    int box_x_end = box_ptr.xyz[0] + box_ptr->xyz_size[r][0];
-    int box_z_end = box_ptr->xyz[2] + box_ptr->xyz_size[r][2];
-    max_x = max(max_x, box_x_end);
-    max_z = max(max_z, box_z_end);
+    int box_x_end = box_ptr->pos.x + box_ptr->size.width;
+    int box_z_end = box_ptr->pos.z + box_ptr->size.depth;
+    max_x = std::max(max_x, box_x_end);
+    max_z = std::max(max_z, box_z_end);
   }
 
   int indent_x = 0, indent_z = 0;
-  if (max_x < pal_ptr->xyz_size[0]) {
-    indent_x = (pal_ptr->xyz_size[0] - max_x) / 2;
+  if (max_x < pal_ptr->size.width) {
+    indent_x = (pal_ptr->size.width - max_x) / 2;
   }
-  if (max_z < pal_ptr->xyz_size[2]) {
-    indent_z = (pal_ptr->xyz_size[2] - max_z) / 2;
+  if (max_z < pal_ptr->size.depth) {
+    indent_z = (pal_ptr->size.depth - max_z) / 2;
   }
 
   for (auto &box_ptr :
        pal_ptr->placed_boxes) { // смещаем все коробки на indent_x и indent_z,
                                 // чтобы центрировать по x и z
-    box_ptr->xyz[0] += indent_x;
-    box_ptr->xyz[2] += indent_z;
+    box_ptr->pos.x += indent_x;
+    box_ptr->pos.z += indent_z;
   }
 
   pal_ptr->xyz_mass_centre[0] += indent_x;
   pal_ptr->xyz_mass_centre[2] += indent_z;
 }
 
-void pallet_handle(Pallet *pal_ptr, vector<Box> &total_boxes) {
+void pallet_handle(Pallet *pal_ptr, std::vector<Box *> &total_boxes,
+                   Setting setting) {
   sort_boxes(total_boxes);
 
   // Если выбран режим Макс  докидывать коробки одного типа бесконечно
-  const box *unlimited_template = nullptr;
+  Box *unlimited_template = nullptr;
   if (pal_ptr->hMaxQtyCheck && !total_boxes.empty()) {
     unlimited_template =
         total_boxes.front(); // один тип: берем первый как шаблон
   }
 
-  cout << "Всего коробок: " << total_boxes.size() << endl;
-  cout << "Кол-во ЗОН " << pal_ptr->zone_vector.size() << endl;
-  zone *pal_zone_ptr;
-  box *placed_box_ptr = nullptr;
+  std::cout << "Всего коробок: " << total_boxes.size() << std::endl;
+  std::cout << "Кол-во ЗОН " << pal_ptr->zone_vector.size() << std::endl;
+  Zone *pal_zone_ptr;
+  Box *placed_box_ptr = nullptr;
   height_map_init(pal_ptr);
-  cout << "Начинаем размещение коробок на паллете\n";
+  std::cout << "Начинаем размещение коробок на паллете" << std::endl;
+  ;
 
-  int max_iterations = total_boxes.size() * 1000; // Лимит итераций
+  int max_iterations =
+      total_boxes.size() * setting.max_iterations; // Лимит итераций
   int iterations = 0;
   int failed_iterations = 0;
-  const int MAX_FAILED =
-      100; // Если 100 итераций подряд не получилось разместить - выходим
 
   while (is_placement_possible(pal_ptr, total_boxes)) {
     iterations++;
     if (iterations > max_iterations) {
-      cout << "Достигнут лимит итераций, прекращаем укладку\n";
+      std::cout << "Достигнут лимит итераций, прекращаем укладку" << std::endl;
       break;
     }
 
@@ -144,33 +144,40 @@ void pallet_handle(Pallet *pal_ptr, vector<Box> &total_boxes) {
     check_meb(pal_ptr, total_boxes);
 
     if (pal_ptr->zone_vector.empty()) {
-      cout << "Нет доступных зон для размещения\n";
+      std::cout << "Нет доступных зон для размещения\n";
       break;
     }
 
     pal_zone_ptr = select_zone(pal_ptr);
 
-    if (!pal_zone_ptr || !pal_zone_ptr->usable) {
-      cout << "Выбранная зона мертва, удаляем её\n";
-      if (pal_zone_ptr)
-        kill_zone(pal_ptr, pal_zone_ptr);
+    if (!pal_zone_ptr || !is_zone_sane(pal_ptr, pal_zone_ptr)) {
+      std::cout << "Выбранная зона проклята, удаляем её" << std::endl;
+      std::cout << "Zone [" << "] "
+                << "Pos: (" << pal_zone_ptr->pos.x << ", "
+                << pal_zone_ptr->pos.y << ", " << pal_zone_ptr->pos.z << ") | "
+                << "Size: (" << pal_zone_ptr->size.width << ", "
+                << pal_zone_ptr->size.height << ", " << pal_zone_ptr->size.depth
+                << ")\n";
+      kill_zone(pal_ptr, pal_zone_ptr);
       failed_iterations++;
-      if (failed_iterations > MAX_FAILED) {
-        cout << "Слишком много неудачных итераций, прекращаем укладку\n";
+      if (failed_iterations > setting.max_failed) {
+        std::cout << "Слишком много неудачных итераций, прекращаем укладку"
+                  << std::endl;
         break;
       }
       continue;
     }
+    if (!pal_zone_ptr->usable)
+      continue;
 
     placed_box_ptr = box_placement_handle(pal_ptr, pal_zone_ptr, total_boxes);
 
     if (placed_box_ptr) {
-      celebrate();
       split_zone(pal_ptr, pal_zone_ptr, placed_box_ptr);
       zone_cleanup(pal_ptr);
-      cout << "Зон щас:" << pal_ptr->zone_vector.size() << endl;
-      cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size()
-           << endl;
+      std::cout << "Зон щас:" << pal_ptr->zone_vector.size() << std::endl;
+      std::cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size()
+                << std::endl;
       failed_iterations = 0;
     } else {
       // Размещение не удалось
@@ -181,18 +188,19 @@ void pallet_handle(Pallet *pal_ptr, vector<Box> &total_boxes) {
         continue;
       }
 
-      cout << "Убираем зону из доступных\n";
+      std::cout << "Убираем зону из доступных" << std::endl;
       kill_zone(pal_ptr, pal_zone_ptr);
       zone_cleanup(pal_ptr);
       failed_iterations++;
 
-      if (failed_iterations > MAX_FAILED) {
-        cout << "Слишком много неудачных итераций, прекращаем укладку\n";
+      if (failed_iterations > setting.max_failed) {
+        std::cout << "Слишком много неудачных итераций, прекращаем укладку"
+                  << std::endl;
         break;
       }
 
       if (pal_ptr->zone_vector.size() == 0) {
-        cout << "Протокол ПОСЛЕДНИЙ ШАНС" << endl;
+        std::cout << "Протокол ПОСЛЕДНИЙ ШАНС" << std::endl;
 
         meb_gen(pal_ptr);
       }
@@ -206,10 +214,8 @@ void pallet_handle(Pallet *pal_ptr, vector<Box> &total_boxes) {
       int qbox_lay = 0;
       for (auto &box :
            pal_ptr->placed_boxes) { // Считаем кол-во коробок в первом слое
-        if (box->xyz[1] == 0) {
+        if (box->pos.y == 0) {
           qbox_lay++;
-        } else {
-          break;
         }
       }
       if (qbox_lay > 0) {
@@ -219,7 +225,7 @@ void pallet_handle(Pallet *pal_ptr, vector<Box> &total_boxes) {
         int del_box = placed - need_box;       // удалить только неполный хвост
 
         for (int i = 0; i < del_box; ++i) {
-          box *b = pal_ptr->placed_boxes.back();
+          Box *b = pal_ptr->placed_boxes.back();
           pal_ptr->placed_boxes.pop_back();
           delete b;
         }
@@ -230,38 +236,42 @@ void pallet_handle(Pallet *pal_ptr, vector<Box> &total_boxes) {
 
   centering_box(pal_ptr);
 
-  cout << "\n========== Размещение завершено ==========\n";
-  cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size() << endl;
-  cout << "Максимальная высота: " << pal_ptr->max_height_box << " см\n";
-  cout << "Вес паллеты: " << pal_ptr->total_mass << " кг из "
-       << pal_ptr->max_mass << " кг\n";
+  std::cout << "\n========== Размещение завершено ==========" << std::endl;
+  std::cout << "Всего размещено коробок: " << pal_ptr->placed_boxes.size()
+            << std::endl;
+  std::cout << "Максимальная высота: " << pal_ptr->max_height_box << " см"
+            << std::endl;
+  std::cout << "Вес паллеты: " << pal_ptr->total_mass << " кг из "
+            << pal_ptr->max_mass << " кг" << std::endl;
 
   int total_volume =
-      pal_ptr->xyz_size[0] * pal_ptr->xyz_size[1] * pal_ptr->xyz_size[2];
+      pal_ptr->size.width * pal_ptr->size.height * pal_ptr->size.depth;
   int used_volume = 0;
 
   for (const auto &box_ptr : pal_ptr->placed_boxes) {
-    int r = box_ptr->rotate;
-    used_volume += box_ptr->xyz_size[r][0] * box_ptr->xyz_size[r][1] *
-                   box_ptr->xyz_size[r][2];
+    used_volume +=
+        box_ptr->size.width * box_ptr->size.height * box_ptr->size.depth;
   }
 
-  cout << "Заполнено объема: " << used_volume << " из " << total_volume << " ("
-       << (used_volume * 100.0) / total_volume << "%)\n";
-  cout << "Осталось неразмещенных коробок: " << total_boxes.size() << endl;
+  std::cout << "Заполнено объема: " << used_volume << " из " << total_volume
+            << " (" << (used_volume * 100.0) / total_volume << "%)"
+            << std::endl;
+  std::cout << "Осталось неразмещенных коробок: " << total_boxes.size()
+            << std::endl;
 
   if (!total_boxes.empty()) {
-    cout << "\nНеразмещенные коробки:\n";
+    std::cout << "\nНеразмещенные коробки:" << std::endl;
     for (auto &box_ptr : total_boxes) {
       if (box_ptr->placed == false) {
-        cout << "  Размер: (" << box_ptr->xyz_size[0][0] << ", "
-             << box_ptr->xyz_size[0][1] << ", " << box_ptr->xyz_size[0][2]
-             << ") см, вес: " << box_ptr->mass << " кг\n";
+        std::cout << "  Размер: (" << box_ptr->size.width << ", "
+                  << box_ptr->size.height << ", " << box_ptr->size.depth
+                  << ") см, вес: " << box_ptr->mass << " кг" << std::endl;
       }
     }
   }
 
   if (iterations >= max_iterations) {
-    cout << "WARNING: Достигнут лимит итераций (" << max_iterations << ")\n";
+    std::cout << "WARNING: Достигнут лимит итераций (" << max_iterations << ")"
+              << std::endl;
   }
 }

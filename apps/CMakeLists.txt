@@ -15,5 +15,6 @@ target_link_libraries(packing_viewer PRIVATE
 
 target_include_directories(packing_viewer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/packing
     ${CMAKE_SOURCE_DIR}/include
 )

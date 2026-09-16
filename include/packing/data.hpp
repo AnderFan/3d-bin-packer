@@ -19,8 +19,10 @@
 #define PALLET_Z 800
 #define PALLET_MAX_MASS 1050 // Максимальный вес паллеты по умолчанию (кг)
 
-#define MIN_SUPPORT                                                            \
-  0.8 // минимальная поддержка коробки снизу в процентах от площади дна коробки
+struct Setting {
+  int max_iterations = 1000;
+  int max_failed = 100;
+};
 
 struct CenterMassResult {
   double cx;
@@ -28,7 +30,6 @@ struct CenterMassResult {
   double cz;
   int total_mass;
 };
-
 struct Box {
   std::array<int, 6> scores = {
       INT_MAX, INT_MAX, INT_MAX, INT_MAX,
@@ -37,17 +38,18 @@ struct Box {
                          // по подсчету оценки да
   Packing::Vector3 pos;
   Size size;
-  int temp_xz[2]; // временные координаты для оценки коробки в зоне
-  int mass = 0;   // масса коробки
-  int rotate; // если 1 то кабы она повернута да. Указывает на массив xyz_size
-              // какой из двух использовать
+  Packing::Vector3 temp_pos; // временные координаты для оценки коробки в зоне
+  double ratio;
+  int mass = 0; // масса коробки
+  int rotate;   // если 1 то кабы она повернута да. Указывает на массив xyz_size
+                // какой из двух использовать
   bool full_rotateble = false; // полный поворот
   bool placed = false;         // РАЗМЩЕНА ЛИ ЭТА КОРОБКА В ПАЛЛЕТЕ -
 };
 
 struct Zone {
-  int xyz[3];
-  int xyz_size[3]; // ширина[0], высота[1], глубота[2]
+  Packing::Vector3 pos;
+  Size size;
   // int index = 0;
   bool usable = true; // жива ли зона - если фалс то зона метрва да
 };
@@ -64,7 +66,7 @@ struct Pallet {
   int total_mass = 0;  // суммарный вес
   int max_mass = 1000; // макс вес паллета (теперь изменяемый)
 
-  std::vector<Box>
+  std::vector<Box *>
       placed_boxes; // размещенные коробоки
                     // vector<zone*> zone_vector = { new zone{ {0, 0, 0},
                     // {xyz_size[0], xyz_size[1], xyz_size[2]}, true} }; //
@@ -85,7 +87,7 @@ struct Pallet {
   // std::map<pair<int, int>, pair<int, int>> mru_positions;
   std::vector<std::vector<int>>
       height_map; // Вектор который хранит y в точке  [x][z]
-
+  float min_support = 0.8f;
   int center_mass_or_max_volume = 0; // 0 - центр масс, 1 - объем
 
   bool hMaxQtyCheck = false; // Если true, то кол-во коробок не ограничено.
@@ -93,7 +95,7 @@ struct Pallet {
       false; // Запретить неполные слои. Только если hMaxQtyCheck = true.
 
   // Конструктор для инициализации размеров
-  Pallet(int x = 1200, int y = 1555, int z = 800, int maxMass = 1500,
+  Pallet(int x = 1200, int y = 1555, int z = 800, int maxMass = 150000,
          int centerMassOrMaxVolume = 0, bool hMaxQtyCheck = false,
          bool lim_lay = false)
       : size{x, y, z}, max_mass(maxMass),

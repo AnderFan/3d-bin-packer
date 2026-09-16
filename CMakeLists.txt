@@ -32,8 +32,14 @@ target_compile_options(packing_warnings INTERFACE
         -Wconversion
         -Wsign-conversion
         $<$<BOOL:${ENABLE_WARNINGS_AS_ERRORS}>:-Werror>
+        $<$<CONFIG:Debug>:-g3 -O0 -fno-omit-frame-pointer>
     >
 )
+if(ENABLE_ASAN)
+    target_compile_options(packing_warnings INTERFACE -fsanitize=address,undefined)
+    target_link_options(packing_warnings INTERFACE -fsanitize=address,undefined)
+endif()
+
 include(FetchContent)
 
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
