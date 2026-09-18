@@ -3,7 +3,6 @@
 #include "pal_meb.hpp"
 #include "pal_zone.hpp"
 #include <algorithm>
-#include <cstddef>
 #include <iostream>
 #include <ostream>
 
@@ -23,9 +22,7 @@ void ClearPallet(Pallet &pal, std::vector<Box *> &total_boxes) {
   }
   pal.total_mass = 0;
   pal.max_height_box = 0;
-  pal.xyz_mass_centre[0] = 0;
-  pal.xyz_mass_centre[1] = 0;
-  pal.xyz_mass_centre[2] = 0;
+  pal.mass_centre = {0, 0, 0};
   pal.zone_vector.push_back(new Zone{
       {0, 0, 0}, {pal.size.width, pal.size.height, pal.size.depth}, true});
 }
@@ -35,9 +32,7 @@ static void rebuild_pallet_state(Pallet *pal_ptr) {
     return;
 
   pal_ptr->total_mass = 0;
-  pal_ptr->xyz_mass_centre[0] = 0;
-  pal_ptr->xyz_mass_centre[1] = 0;
-  pal_ptr->xyz_mass_centre[2] = 0;
+  pal_ptr->mass_centre = {0, 0, 0};
   pal_ptr->max_height_box = 0;
 
   height_map_init(pal_ptr);
@@ -122,10 +117,9 @@ void centering_box(Pallet *pal_ptr) {
     box_ptr->pos.z += indent_z;
   }
 
-  pal_ptr->xyz_mass_centre[0] += indent_x;
-  pal_ptr->xyz_mass_centre[2] += indent_z;
+  pal_ptr->mass_centre.x += indent_x;
+  pal_ptr->mass_centre.z += indent_z;
 }
-
 void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
                    Setting setting) {
   ClearPallet(*pal_ptr, total_boxes);
@@ -133,7 +127,7 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
 
   // Если выбран режим Макс  докидывать коробки одного типа бесконечно
   Box *unlimited_template = nullptr;
-  if (pal_ptr->hMaxQtyCheck && !total_boxes.empty()) {
+  if (setting.hMaxQtyCheck && !total_boxes.empty()) {
     unlimited_template =
         total_boxes.front(); // один тип: берем первый как шаблон
   }
@@ -151,14 +145,14 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
   int iterations = 0;
   int failed_iterations = 0;
   bool last_chance = false;
-  while (is_placement_possible(pal_ptr, total_boxes)) {
+  while (is_placement_possible(pal_ptr, setting, total_boxes)) {
     iterations++;
     if (iterations > max_iterations) {
       std::cout << "Достигнут лимит итераций, прекращаем укладку" << std::endl;
       break;
     }
 
-    if (pal_ptr->hMaxQtyCheck && unlimited_template) {
+    if (setting.hMaxQtyCheck && unlimited_template) {
       // если коробок не осталось
       if (total_boxes.empty()) {
         total_boxes.push_back(clone_box(unlimited_template));
@@ -194,7 +188,8 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
     if (!pal_zone_ptr->usable)
       continue;
 
-    placed_box_ptr = box_placement_handle(pal_ptr, pal_zone_ptr, total_boxes);
+    placed_box_ptr =
+        box_placement_handle(pal_ptr, pal_zone_ptr, setting, total_boxes);
 
     if (placed_box_ptr) {
       split_zone(pal_ptr, pal_zone_ptr, placed_box_ptr);
@@ -235,7 +230,7 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
     }
   }
 
-  if (pal_ptr->lim_lay && pal_ptr->center_mass_or_max_volume == 0) {
+  if (setting.lim_lay && setting.hMaxQtyCheck) {
     if (pal_ptr->placed_boxes.empty()) {
       // нечего удалять
     } else {
@@ -247,7 +242,7 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
         }
       }
       if (qbox_lay > 0) {
-        int placed = (int)pal_ptr->placed_boxes.size();
+        int placed = static_cast<int>(pal_ptr->placed_boxes.size());
         int full_layers = placed / qbox_lay;
         int need_box = full_layers * qbox_lay; // оставить только целые слои
         int del_box = placed - need_box;       // удалить только неполный хвост

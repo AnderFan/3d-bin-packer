@@ -4,23 +4,22 @@
 #include "raygui.h"
 #include "raylib.h"
 #include "types.hpp"
+#include <iostream>
 #include <string>
 
-bool DrawMenu(Pallet &pal, std::vector<Box *> &boxes, bool &data_changed) {
+bool DrawMenu(Pallet &pal, std::vector<Box *> &boxes, Setting &setting) {
+  GuiSetStyle(DEFAULT, TEXT_SIZE, 24);
+
   static int tab_scroll = 0;
   static int active_tab = 0;
-  GuiTabBar((Rectangle){0, 0, 150, 24}, "Data Input", &tab_scroll, &active_tab);
+  GuiTabBar((Rectangle){0, 0, 225, 36}, "Data Input", &tab_scroll, &active_tab);
 
-  // Буферы для добавления ОДНОГО типа коробки
   static int cur_w = 100, cur_h = 100, cur_d = 100;
   static int cur_count = 10, cur_mass = 20;
   static bool cur_full_rotate = false;
 
-  // ID поля, находящегося в режиме редактирования (-1 — ничего не
-  // редактируется)
   static int active_box = -1;
 
-  // Лямбда-хелпер для компактной отрисовки и переключения режима ввода
   auto DrawValBox = [&](Rectangle bounds, int *val, int min_val, int max_val,
                         int id) {
     if (GuiValueBox(bounds, NULL, val, min_val, max_val, active_box == id)) {
@@ -28,56 +27,51 @@ bool DrawMenu(Pallet &pal, std::vector<Box *> &boxes, bool &data_changed) {
     }
   };
 
-  // Текстовый буфер для отображения списка в ListView
   static std::string list_text = "";
   static int list_scroll = 0;
   static int list_active = -1;
 
-  // =======================================================
-  // 1. ПАРАМЕТРЫ ПАЛЛЕТЫ (пишутся напрямую в поля pal)
-  // =======================================================
-  GuiLabel((Rectangle){20, 35, 200, 20}, "Pallet parameters (mm):");
+  GuiLabel((Rectangle){30, 52.5f, 300, 30}, "Pallet parameters (mm):");
 
-  GuiLabel((Rectangle){20, 60, 100, 24}, "Width (X):");
-  DrawValBox((Rectangle){130, 60, 120, 24}, &pal.size.width, 100, 5000, 0);
+  GuiLabel((Rectangle){30, 90, 150, 36}, "Width (X):");
+  DrawValBox((Rectangle){195, 90, 180, 36}, &pal.size.width, 100, 5000, 0);
 
-  GuiLabel((Rectangle){20, 90, 100, 24}, "Height (Y):");
-  DrawValBox((Rectangle){130, 90, 120, 24}, &pal.size.height, 100, 5000, 1);
+  GuiLabel((Rectangle){30, 135, 150, 36}, "Height (Y):");
+  DrawValBox((Rectangle){195, 135, 180, 36}, &pal.size.height, 100, 5000, 1);
 
-  GuiLabel((Rectangle){20, 120, 100, 24}, "Depth (Z):");
-  DrawValBox((Rectangle){130, 120, 120, 24}, &pal.size.depth, 100, 5000, 2);
+  GuiLabel((Rectangle){30, 180, 150, 36}, "Depth (Z):");
+  DrawValBox((Rectangle){195, 180, 180, 36}, &pal.size.depth, 100, 5000, 2);
 
-  GuiLabel((Rectangle){20, 150, 100, 24}, "Max weight (g):");
-  DrawValBox((Rectangle){130, 150, 120, 24}, &pal.max_mass, 1, 100000, 3);
+  GuiLabel((Rectangle){30, 225, 150, 36}, "Carrying (g):");
+  DrawValBox((Rectangle){195, 225, 180, 36}, &pal.max_mass, 1, 100000, 3);
 
-  // =======================================================
-  // 2. ДОБАВЛЕНИЕ КОРОБОК
-  // =======================================================
-  GuiLabel((Rectangle){20, 190, 200, 20}, "Add boxes:");
+  GuiLabel((Rectangle){30, 285, 300, 30}, "Add boxes:");
 
-  GuiLabel((Rectangle){20, 215, 100, 24}, "Width (mm):");
-  DrawValBox((Rectangle){130, 215, 120, 24}, &cur_w, 10, 3000, 4);
+  GuiLabel((Rectangle){30, 322.5f, 150, 36}, "Width (mm):");
+  DrawValBox((Rectangle){195, 322.5f, 180, 36}, &cur_w, 10, 3000, 4);
 
-  GuiLabel((Rectangle){20, 245, 100, 24}, "Height (mm):");
-  DrawValBox((Rectangle){130, 245, 120, 24}, &cur_h, 10, 3000, 5);
+  GuiLabel((Rectangle){30, 367.5f, 150, 36}, "Height (mm):");
+  DrawValBox((Rectangle){195, 367.5f, 180, 36}, &cur_h, 10, 3000, 5);
 
-  GuiLabel((Rectangle){20, 275, 100, 24}, "Depth (mm):");
-  DrawValBox((Rectangle){130, 275, 120, 24}, &cur_d, 10, 3000, 6);
+  GuiLabel((Rectangle){30, 412.5f, 150, 36}, "Depth (mm):");
+  DrawValBox((Rectangle){195, 412.5f, 180, 36}, &cur_d, 10, 3000, 6);
 
-  GuiLabel((Rectangle){20, 305, 100, 24}, "Quantity:");
-  DrawValBox((Rectangle){130, 305, 120, 24}, &cur_count, 1, 1000, 7);
+  GuiLabel((Rectangle){30, 457.5f, 150, 36}, "Quantity:");
+  DrawValBox((Rectangle){195, 457.5f, 180, 36}, &cur_count, 1, 1000, 7);
 
-  // Флаг неограниченного числа коробок
-  GuiCheckBox((Rectangle){260, 309, 16, 16}, "Max.", &pal.hMaxQtyCheck);
+  if (boxes.size() >= 2)
+    GuiDisable();
+  GuiCheckBox((Rectangle){390, 463.5f, 24, 24}, "Max.", &setting.hMaxQtyCheck);
+  GuiEnable();
+  GuiLabel((Rectangle){30, 502.5f, 150, 36}, "Weight (g):");
+  DrawValBox((Rectangle){195, 502.5f, 180, 36}, &cur_mass, 1, 50000, 8);
 
-  GuiLabel((Rectangle){20, 335, 100, 24}, "Weight (g):");
-  DrawValBox((Rectangle){130, 335, 120, 24}, &cur_mass, 1, 50000, 8);
-
-  GuiCheckBox((Rectangle){130, 365, 16, 16}, "Full box rotation?",
+  GuiCheckBox((Rectangle){195, 547.5f, 24, 24}, "Full box rotation?",
               &cur_full_rotate);
 
-  // Добавление коробок сразу в вектор boxes
-  if (GuiButton((Rectangle){20, 395, 140, 30}, "Add boxes")) {
+  if (setting.hMaxQtyCheck && boxes.size() >= 1)
+    GuiDisable();
+  if (GuiButton((Rectangle){30, 592.5f, 210, 45}, "Add boxes")) {
     for (int i = 0; i < cur_count; ++i) {
       Box *b = new Box();
       b->size = Size{cur_w, cur_h, cur_d};
@@ -90,52 +84,49 @@ bool DrawMenu(Pallet &pal, std::vector<Box *> &boxes, bool &data_changed) {
 
     std::string row = TextFormat("%dx%dx%d mm | %d pcs | %d g", cur_w, cur_h,
                                  cur_d, cur_count, cur_mass);
+    if (cur_full_rotate)
+      row += "| Full rotateble";
+
     if (!list_text.empty())
       list_text += ";";
+    std::cout << "DEBUG cur_full_rotate = " << cur_full_rotate << std::endl;
     list_text += row;
-    data_changed = true;
   }
-
-  // Очистка списка коробок
-  if (GuiButton((Rectangle){170, 395, 140, 30}, "Clear list")) {
+  GuiEnable();
+  if (GuiButton((Rectangle){255, 592.5f, 210, 45}, "Clear list")) {
     for (auto *b : boxes)
       delete b;
     boxes.clear();
     list_text.clear();
     list_active = -1;
-    data_changed = true;
   }
 
-  // =======================================================
-  // 3. СПИСОК КОРОБОК И РЕЖИМ УКЛАДКИ
-  // =======================================================
-  GuiLabel((Rectangle){340, 35, 200, 20}, "Added box types:");
-  GuiListView((Rectangle){340, 60, 480, 260}, list_text.c_str(), &list_scroll,
+  GuiLabel((Rectangle){510, 52.5f, 300, 30}, "Added box types:");
+  GuiListView((Rectangle){510, 90, 720, 390}, list_text.c_str(), &list_scroll,
               &list_active);
 
-  GuiLabel((Rectangle){340, 335, 120, 20}, "Packing method:");
+  GuiLabel((Rectangle){510, 502.5f, 180, 30}, "Packing method:");
 
-  bool is_vol = (pal.center_mass_or_max_volume == 1);
-  bool is_cm = (pal.center_mass_or_max_volume == 0);
+  bool is_vol = (setting.center_mass_or_max_volume == 1);
+  bool is_cm = (setting.center_mass_or_max_volume == 0);
 
-  if (GuiCheckBox((Rectangle){340, 365, 16, 16}, "By center of mass", &is_cm)) {
-    pal.center_mass_or_max_volume = 0;
+  if (GuiCheckBox((Rectangle){510, 547.5f, 24, 24}, "By center of mass",
+                  &is_cm)) {
+    setting.center_mass_or_max_volume = 0;
   }
-  if (GuiCheckBox((Rectangle){480, 365, 16, 16}, "By max volume", &is_vol)) {
-    pal.center_mass_or_max_volume = 1;
+  if (GuiCheckBox((Rectangle){820, 547.5f, 24, 24}, "By max volume", &is_vol)) {
+    setting.center_mass_or_max_volume = 1;
   }
 
-  if (pal.center_mass_or_max_volume != 1)
+  if (!setting.hMaxQtyCheck)
     GuiDisable();
-  GuiCheckBox((Rectangle){480, 395, 16, 16}, "Forbid incomplete layers",
-              &pal.lim_lay);
-  if (pal.center_mass_or_max_volume != 1)
+  GuiCheckBox((Rectangle){820, 592.5f, 24, 24}, "Forbid incomplete layers",
+              &setting.lim_lay);
+
+  if (!setting.hMaxQtyCheck)
     GuiEnable();
 
-  // =======================================================
-  // 4. КНОПКА ЗАПУСКА
-  // =======================================================
-  return GuiButton((Rectangle){20, (float)GetScreenHeight() - 50,
-                               (float)GetScreenWidth() - 40, 35},
+  return GuiButton((Rectangle){30, (float)GetScreenHeight() - 75.0f,
+                               (float)GetScreenWidth() - 60.0f, 52.5f},
                    "Calculate packing");
 }

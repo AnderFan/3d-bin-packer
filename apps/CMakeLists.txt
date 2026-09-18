@@ -1,7 +1,6 @@
 # apps/CMakeLists.txt
 
 add_executable(packing_viewer
-    src/main.cpp
     src/camera_controller.cpp
     src/viewer_app.cpp
     src/scene_render.cpp

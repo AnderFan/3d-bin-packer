@@ -1,19 +1,12 @@
 #include "scene_render.hpp"
 
-#include <array>
-#include <climits>
-#include <vector>
-
 #include "data.hpp"
 #include "raylib.h"
-#include "raymath.h"
 #include "rcamera.h"
 #include "rlgl.h"
 #include <cmath>
 
-void DrawPalletGrid(
-    Size size, float step) { // The bottom left edge of the pallet is always
-                             // 0.0. The box cannot have a negative position.
+void DrawPalletGrid(Size size, float step) {
   rlBegin(RL_LINES);
   rlColor4ub(0, 0, 0, 255);
 
