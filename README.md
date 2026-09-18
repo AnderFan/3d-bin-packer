@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An interactive 3D container & pallet loading optimization software written in modern **C++20** with real-time rendering and immediate-mode GUI powered by **[Raylib](https://www.raylib.com/)** and **[Raygui](https://github.com/raysan5/raygui)**.
-/<img width="1070" height="515" alt="изображение" src="https://github.com/user-attachments/assets/b592c367-32bc-4e1c-96bf-391909148daa" />
+<img width="1070" height="515" alt="изображение" src="https://github.com/user-attachments/assets/b592c367-32bc-4e1c-96bf-391909148daa" />
 
 <img width="1051" height="496" alt="изображение" src="https://github.com/user-attachments/assets/40ab8447-9933-4a97-8cdd-728b28a210d1" />
 
