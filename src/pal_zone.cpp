@@ -124,9 +124,13 @@ static void unlink_zone(Pallet *pallet_ptr, Zone *z) {
 void kill_zone(Pallet *pallet_ptr, Zone *z) {
   if (!pallet_ptr || !z)
     return;
-
-  // Сначала выкинуть из активных
   unlink_zone(pallet_ptr, z);
+
+  auto &dead = pallet_ptr->zone_dead_vector;
+  if (std::find(dead.begin(), dead.end(), z) != dead.end()) {
+    return; // Если зона уже помечена как dead, не вызываем delete повторно!
+  }
+
   delete z;
 }
 
@@ -179,45 +183,40 @@ std::vector<Zone *>
 subtract(const Zone *A,
          const Zone &I) { // Создаёт куски зоны A без пересечения с I.
   std::vector<Zone *> out;
-  auto [ax, ay, az] = A->pos;
-  auto [aw, ah, ad] = A->size;
-  int ax2 = ax + aw, ay2 = ay + ad, az2 = az + ah;
+  // Замените начало функции subtract на явное присвоение без двусмысленности:
+  int ax = A->pos.x, ay = A->pos.y, az = A->pos.z;
+  int aw = A->size.width, ah = A->size.height, ad = A->size.depth;
+  int ax2 = ax + aw, ay2 = ay + ah, az2 = az + ad;
 
-  auto [ix, iy, iz] = I.pos;
-  auto [iw, id, ih] = I.size;
-  int ix2 = ix + iw, iy2 = iy + id, iz2 = iz + ih;
+  int ix = I.pos.x, iy = I.pos.y, iz = I.pos.z;
+  int iw = I.size.width, ih = I.size.height, id = I.size.depth;
+  int ix2 = ix + iw, iy2 = iy + ih, iz2 = iz + id;
 
-  auto add = [&](int x, int y, int z, int w, int d, int h) {
-    if (w <= 0 || d <= 0 || h <= 0)
+  auto add = [&](int x, int y, int z, int w, int h, int d) {
+    if (w <= 0 || h <= 0 || d <= 0)
       return;
-    out.push_back(new Zone{{x, y, z}, {w, d, h}, true});
+    out.push_back(new Zone{{x, y, z}, {w, h, d}, true});
   };
 
-  // left
+  // И далее аккуратно передавайте размеры в порядке (x, y, z, w, h, d):
   if (ix > ax)
-    add(ax, ay, az, ix - ax, ad, ah);
-  // right
+    add(ax, ay, az, ix - ax, ah, ad);
   if (ix2 < ax2)
-    add(ix2, ay, az, ax2 - ix2, ad, ah);
-  // back
+    add(ix2, ay, az, ax2 - ix2, ah, ad);
   if (iy > ay)
     add(std::max(ax, ix), ay, az, std::min(ax2, ix2) - std::max(ax, ix),
-        iy - ay, ah);
-  // front
+        iy - ay, ad);
   if (iy2 < ay2)
     add(std::max(ax, ix), iy2, az, std::min(ax2, ix2) - std::max(ax, ix),
-        ay2 - iy2, ah);
-  // bottom
+        ay2 - iy2, ad);
   if (iz > az)
     add(std::max(ax, ix), std::max(ay, iy), az,
         std::min(ax2, ix2) - std::max(ax, ix),
         std::min(ay2, iy2) - std::max(ay, iy), iz - az);
-  // top
   if (iz2 < az2)
     add(std::max(ax, ix), std::max(ay, iy), iz2,
         std::min(ax2, ix2) - std::max(ax, ix),
         std::min(ay2, iy2) - std::max(ay, iy), az2 - iz2);
-
   return out;
 }
 void sub_zone(Pallet *pal_ptr) {
@@ -470,8 +469,7 @@ void split_zone(Pallet *pallet_ptr, Zone *zone_to_split_pointer, Box *box_ptr) {
 
   // 3. Сзади (по Z): от задней грани коробки до конца зоны
   //    Ширина и высота ограничены коробкой (остальное занято зонами 1 и 2)
-  //  add_zone(bx, by, bz2, bsx, bsy, zz2 - bz2);
-  add_zone(zx, zy, bz2, zsx, zsy, zz2 - bz2);
+  add_zone(bx, by, bz2, bsx, bsy, zz2 - bz2);
 }
 // }
 

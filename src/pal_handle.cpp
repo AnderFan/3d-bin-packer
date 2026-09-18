@@ -6,6 +6,30 @@
 #include <cstddef>
 #include <iostream>
 #include <ostream>
+
+void ClearPallet(Pallet &pal, std::vector<Box *> &total_boxes) {
+  for (auto *zone : pal.zone_vector) {
+    delete zone;
+  }
+  pal.zone_vector.clear();
+  pal.placed_boxes.clear();
+
+  for (auto *b : total_boxes) {
+    if (!b)
+      continue;
+    b->placed = false;
+    b->pos = {-1, -1, -1};
+    b->scores = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX};
+  }
+  pal.total_mass = 0;
+  pal.max_height_box = 0;
+  pal.xyz_mass_centre[0] = 0;
+  pal.xyz_mass_centre[1] = 0;
+  pal.xyz_mass_centre[2] = 0;
+  pal.zone_vector.push_back(new Zone{
+      {0, 0, 0}, {pal.size.width, pal.size.height, pal.size.depth}, true});
+}
+
 static void rebuild_pallet_state(Pallet *pal_ptr) {
   if (!pal_ptr)
     return;
@@ -50,9 +74,8 @@ Box *clone_box(const Box *src) {
 
   Box *b = new Box(*src); // копирует размеры, массу, full_rotateble и т.д.
   b->placed = false;
-  b->rotate = 0;
   b->pos.x = b->pos.y = b->pos.z = -1;
-  b->temp_pos.x = b->temp_pos.y = -1;
+  b->pos.x = b->pos.y = -1;
   b->scores = {INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX};
   return b;
 }
@@ -103,8 +126,9 @@ void centering_box(Pallet *pal_ptr) {
   pal_ptr->xyz_mass_centre[2] += indent_z;
 }
 
-void pallet_handle(Pallet *pal_ptr, std::vector<Box *> &total_boxes,
+void pallet_handle(Pallet *pal_ptr, std::vector<Box *> total_boxes,
                    Setting setting) {
+  ClearPallet(*pal_ptr, total_boxes);
   sort_boxes(total_boxes);
 
   // Если выбран режим Макс  докидывать коробки одного типа бесконечно
@@ -126,7 +150,7 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> &total_boxes,
       total_boxes.size() * setting.max_iterations; // Лимит итераций
   int iterations = 0;
   int failed_iterations = 0;
-
+  bool last_chance = false;
   while (is_placement_possible(pal_ptr, total_boxes)) {
     iterations++;
     if (iterations > max_iterations) {
@@ -199,11 +223,15 @@ void pallet_handle(Pallet *pal_ptr, std::vector<Box *> &total_boxes,
         break;
       }
 
-      if (pal_ptr->zone_vector.size() == 0) {
+      if (pal_ptr->zone_vector.size() == 0 && last_chance == false) {
         std::cout << "Протокол ПОСЛЕДНИЙ ШАНС" << std::endl;
-
+        last_chance = true;
         meb_gen(pal_ptr);
+        continue;
       }
+    }
+    if (last_chance) {
+      break;
     }
   }
 

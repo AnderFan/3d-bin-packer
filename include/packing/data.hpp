@@ -38,11 +38,8 @@ struct Box {
                          // по подсчету оценки да
   Packing::Vector3 pos;
   Size size;
-  Packing::Vector3 temp_pos; // временные координаты для оценки коробки в зоне
   double ratio;
-  int mass = 0; // масса коробки
-  int rotate;   // если 1 то кабы она повернута да. Указывает на массив xyz_size
-                // какой из двух использовать
+  int mass = 0;                // масса коробки
   bool full_rotateble = false; // полный поворот
   bool placed = false;         // РАЗМЩЕНА ЛИ ЭТА КОРОБКА В ПАЛЛЕТЕ -
 };
@@ -96,7 +93,7 @@ struct Pallet {
 
   // Конструктор для инициализации размеров
   Pallet(int x = 1200, int y = 1555, int z = 800, int maxMass = 150000,
-         int centerMassOrMaxVolume = 0, bool hMaxQtyCheck = false,
+         int centerMassOrMaxVolume = 1, bool hMaxQtyCheck = false,
          bool lim_lay = false)
       : size{x, y, z}, max_mass(maxMass),
         center_mass_or_max_volume(centerMassOrMaxVolume),
@@ -109,3 +106,14 @@ struct Pallet {
 };
 
 // extern vector<box*> total_boxes; // Все коробки которые возомжно разместить
+struct PlacementCandidate {
+  Box *box = nullptr;
+  Packing::Vector3 pos{};
+  Size size{};
+  double ratio = 1.0;
+  std::array<int, SCORES_NUM> score = [] {
+    std::array<int, SCORES_NUM> a;
+    a.fill(INT_MAX);
+    return a;
+  }();
+};

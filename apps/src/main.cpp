@@ -39,14 +39,13 @@ std::vector<Box *> fun(std::vector<box_property> box_types) {
 int main(void) {
   Pallet pal;
 
-  std::vector<Box *> total_box = fun({{10, 300, 200, 100, 4},
-                                      {20, 100, 100, 100, 4},
-                                      {30, 200, 300, 100, 5},
-                                      {20, 150, 200, 150},
-                                      {10, 400, 300, 400}});
-
-  Setting setting = {};
-  pallet_handle(&pal, total_box);
-  std::cout << "Боксов в паллете: " << pal.placed_boxes.size() << std::endl;
+  // std::vector<Box *> total_box = fun({{10, 300, 200, 100, 4},
+  //                                     {20, 100, 100, 100, 4},
+  //                                     {30, 200, 300, 100, 5},
+  //                                     {20, 150, 200, 150},
+  //                                     {10, 400, 300, 400}});
+  //
+  // Setting setting = {};
+  // pallet_handle(&pal, total_box);
   ViewerApp(1280, 720, pal);
 }

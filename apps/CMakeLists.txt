@@ -5,6 +5,7 @@ add_executable(packing_viewer
     src/camera_controller.cpp
     src/viewer_app.cpp
     src/scene_render.cpp
+    src/ui_menu.cpp
 )
 
 target_link_libraries(packing_viewer PRIVATE

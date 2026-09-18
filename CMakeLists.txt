@@ -41,7 +41,11 @@ if(ENABLE_ASAN)
 endif()
 
 include(FetchContent)
-
+# CMakeLists.txt
+if(UNIX AND NOT APPLE)
+    set(CUSTOMIZE_BUILD ON CACHE BOOL "" FORCE)
+    set(USE_WAYLAND ON CACHE BOOL "Use Wayland display backend" FORCE)
+endif()
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_WAYLAND ON CACHE BOOL "" FORCE)

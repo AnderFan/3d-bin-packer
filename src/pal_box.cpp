@@ -4,6 +4,7 @@
 #include "types.hpp"
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <cmath>
 #include <iostream>
 #include <omp.h>
@@ -103,16 +104,17 @@ void center_mass_calculate(Pallet *pal_ptr, Box *box_ptr) {
 }
 
 std::array<int, SCORES_NUM>
-access_box_in_zone(Zone *zone_ptr, Box *box, Pallet *pal_ptr, int index,
+access_box_in_zone(Zone *zone_ptr, Box *box, Packing::Vector3 pos, Size size,
+                   Pallet *pal_ptr, int index,
                    std::vector<Box *> &total_boxes) {
 
   int com_y_score = INT_MAX;
   int com_center_score = INT_MAX;
   int box_center_score = INT_MAX;
   if (pal_ptr->center_mass_or_max_volume == 0) { // Если укладка по центру масс
-    double cx_box = box->temp_pos.x + box->size.width / 2.0;
-    double cy_box = box->temp_pos.y + box->size.height / 2.0;
-    double cz_box = box->temp_pos.z + box->size.depth / 2.0;
+    double cx_box = pos.x + size.width / 2.0;
+    double cy_box = pos.y + size.height / 2.0;
+    double cz_box = pos.z + size.depth / 2.0;
 
     CenterMassResult cm =
         simulate_center_mass(pal_ptr, box->mass, cx_box, cy_box, cz_box);
@@ -134,38 +136,32 @@ access_box_in_zone(Zone *zone_ptr, Box *box, Pallet *pal_ptr, int index,
     box_center_score = (int)std::round(bdist2_xz * 100.0);
   }
 
-  int w_zone = zone_ptr->size.width - (box->temp_pos.x - zone_ptr->pos.x);
-  int y_zone = zone_ptr->size.height - (box->temp_pos.y - zone_ptr->pos.y);
-  int d_zone = zone_ptr->size.depth - (box->temp_pos.z - zone_ptr->pos.z);
+  int w_zone = zone_ptr->size.width - (pos.x - zone_ptr->pos.x);
+  int y_zone = zone_ptr->size.height - (pos.y - zone_ptr->pos.y);
+  int d_zone = zone_ptr->size.depth - (pos.z - zone_ptr->pos.z);
 
-  int height_diff = zone_ptr->pos.y + box->temp_pos.y;
+  int height_diff = pos.y + size.height;
   if (pal_ptr->center_mass_or_max_volume ==
       1) { // Если укладка по максимальному объему
-    if ((pal_ptr->size.width / box->size.width) *
-            (pal_ptr->size.depth / box->size.depth) <
-        (pal_ptr->size.width / box->size.depth) *
-            (pal_ptr->size.depth / box->size.width)) {
-      height_diff +=
-          500; // если коробка лучше укладывается в другую ориентацию, штрафуем
+    if ((pal_ptr->size.width / size.width) *
+            (pal_ptr->size.depth / size.depth) <
+        (pal_ptr->size.width / size.depth) *
+            (pal_ptr->size.depth / size.width)) {
+      height_diff += 1000;
     }
 
     if (!pal_ptr->placed_boxes.empty()) {
       auto prev_box = pal_ptr->placed_boxes[pal_ptr->placed_boxes.size() - 1];
-      // if (prev_box->size == box->size) {
-      //  if (prev_box->rotate != rotate) {
-      //    height_diff += 500; // если предыдущая коробка была такого же
-      //    размера,
-      //                        // но в другой ориентации, штрафуем
-      //  }
-      //}
+      if (prev_box->size == size) {
+        height_diff += 500; // если предыдущая коробка была такого же
+                            // но в другой ориентации, штрафуем
+      }
     }
   }
 
-  int waste = w_zone * d_zone - box->size.width * box->size.depth;
-  int long_side =
-      (std::max)(w_zone - box->size.width, d_zone - box->size.depth);
-  int short_side =
-      (std::min)(w_zone - box->size.width, d_zone - box->size.depth);
+  int waste = w_zone * d_zone - size.width * size.depth;
+  int long_side = (std::max)(w_zone - size.width, d_zone - size.depth);
+  int short_side = (std::min)(w_zone - size.width, d_zone - size.depth);
 
   int max_remaining_box_height = get_max_remaining_box_height(total_boxes);
   // if (max_remaining_box_height > bh && (pal_ptr->xyz_size[1] - (by + bh)) <
@@ -175,10 +171,10 @@ access_box_in_zone(Zone *zone_ptr, Box *box, Pallet *pal_ptr, int index,
   // }
   if (box->ratio < 0.8)
     height_diff += 500; // если ratio меньше 0.8, штрафуем
-  if (box->size.height > box->size.width && box->size.height > box->size.depth)
-    height_diff += 200;        // преиущественно коробки должны ложиться плашмя
-  height_diff += (index * 10); // Коробки отсортированы по убыванию. Чем больше
-                               // индекс у коробки тем она меньше
+  if (size.height > size.width && size.height > size.depth)
+    height_diff += 200;         // преиущественно коробки должны ложиться плашмя
+  height_diff += (index * 100); // Коробки отсортированы по убыванию. Чем больше
+                                // индекс у коробки тем она меньше
 
   if (pal_ptr->center_mass_or_max_volume == 0) { // Если укладка по центру масс
     return std::array<int, SCORES_NUM>{
@@ -320,8 +316,6 @@ void place_box(Pallet *pal_ptr, Zone *zone_ptr, Box *box_ptr,
   DEBUG_LOG_ENDL("Позиция: (" << box_ptr->temp_xz[0] << ", " << zone_ptr->xyz[1]
                               << ", " << box_ptr->temp_xz[1] << ")");
 
-  box_ptr->pos = box_ptr->temp_pos;
-
   pal_ptr->placed_boxes.push_back(box_ptr);
 
   if (pal_ptr->max_height_box == INT_MAX) {
@@ -375,9 +369,6 @@ void place_box(Pallet *pal_ptr, Zone *zone_ptr, Box *box_ptr,
   center_mass_calculate(pal_ptr, box_ptr);
 }
 std::optional<std::vector<Size>> get_correct_full_rotate(Size box, Size zone) {
-  if (box.height > zone.height) {
-    return std::nullopt;
-  }
   const std::array<Size, 2> candidates = {
       Size{box.width, box.height, box.depth},
       Size{box.depth, box.height, box.width}};
@@ -397,7 +388,7 @@ std::optional<std::vector<Size>> get_correct_rotate(Size box, Size zone) {
   }
 
   const std::array<Size, 2> candidates = {
-      {{box.width, box.height, box.depth}, {box.width, box.height, box.depth}}};
+      {{box.width, box.height, box.depth}, {box.depth, box.height, box.width}}};
 
   std::vector<Size> correct_size;
 
@@ -427,21 +418,9 @@ Box *box_placement_handle(Pallet *pal_ptr, Zone *zone_ptr,
   DEBUG_LOG_ENDL("Коробок для проверки: " << total_boxes.size());
   DEBUG_LOG_ENDL("Текущая масса паллета: " << pal_ptr->total_mass << " / "
                                            << pal_ptr->max_mass);
-
-  Box *cur_box_ptr = nullptr;
-  int best_idx = -1;
-  std::array<int, SCORES_NUM> best = {INT_MAX, INT_MAX, INT_MAX,
-                                      INT_MAX, INT_MAX, INT_MAX};
-
-  int debug_skipped_placed = 0;
-  int debug_skipped_mass = 0;
-  int debug_skipped_size = 0;
-  int debug_skipped_height = 0;
-  int debug_skipped_collision = 0;
-  int debug_fit_count = 0;
-
   int box_index = -1;
 
+  PlacementCandidate best_candidate;
   //  ПАРАЛЛЕЛЬНЫЙ ЦИКЛ
   // #pragma omp parallel for schedule(dynamic, 4) \
   //         shared(best, best_idx, cur_box_ptr, pal_ptr, zone_ptr,
@@ -450,96 +429,46 @@ Box *box_placement_handle(Pallet *pal_ptr, Zone *zone_ptr,
   //         firstprivate(pal_ptr, zone_ptr)
   for (auto *box_ptr : total_boxes) {
 
-    LocalBest local_best;
     box_index++;
     if (box_ptr->placed) {
-#pragma omp atomic
-      debug_skipped_placed++;
       continue;
     }
     if (box_ptr->mass + pal_ptr->total_mass > pal_ptr->max_mass) {
-#pragma omp atomic
-      debug_skipped_mass++;
       continue;
     }
-
     auto get_rotation =
         box_ptr->full_rotateble ? get_correct_full_rotate : get_correct_rotate;
     std::vector<Size> rotate_variant;
     if (auto v = get_rotation(box_ptr->size, zone_ptr->size)) {
       rotate_variant = std::move(*v);
     }
-    for (auto rt_vairant : rotate_variant) {
-#pragma omp atomic
-      if (!can_place_box_height(pal_ptr, zone_ptr, &rt_vairant,
-                                box_ptr->temp_pos, box_ptr->ratio)) {
-#ifdef DEBUG_PALLET
-#pragma omp critical(debug_print)
-        {
-          cout << "    Rot[" << j << "] (" << w << "x" << h << "x" << d
-               << "): НЕТ ОПОРЫ (height_map)" << endl;
-        }
-#endif
-#pragma omp atomic
-        debug_skipped_height++;
+
+    for (auto &rt_vairant : rotate_variant) {
+      Packing::Vector3 candidate_pos{};
+      double cal_ratio = 1.0;
+      if (!can_place_box_height(pal_ptr, zone_ptr, &rt_vairant, candidate_pos,
+                                box_ptr->ratio)) {
         continue;
       }
-      if (!fits_without_collision(box_ptr->temp_pos, rt_vairant,
+      if (!fits_without_collision(candidate_pos, rt_vairant,
                                   pal_ptr->placed_boxes)) {
-#ifdef DEBUG_PALLET
-#pragma omp critical(debug_print)
-        {
-          cout << "    Rot[" << j << "] (" << w << "x" << h << "x" << d
-               << "): КОЛЛИЗИЯ на pos=(" << out_x << "," << zone_ptr->xyz[1]
-               << "," << out_z << ")" << endl;
-        }
-#endif
-#pragma omp atomic
-        debug_skipped_collision++;
         continue;
       }
 
-      auto score = access_box_in_zone(zone_ptr, box_ptr, pal_ptr, box_index,
-                                      total_boxes);
+      auto score =
+          access_box_in_zone(zone_ptr, box_ptr, candidate_pos, rt_vairant,
+                             pal_ptr, box_index, total_boxes);
 
-#ifdef DEBUG_PALLET
-#pragma omp critical(debug_print)
-      {
-        cout << "    Rot[" << j << "] (" << w << "x" << h << "x" << d
-             << "): OK! pos=(" << out_x << "," << zone_ptr->xyz[1] << ","
-             << out_z << ") ratio=" << ratio << " scores=[" << res[0] << ","
-             << res[1] << "," << res[2] << "," << res[3] << "]" << endl;
-      }
-#endif
-
-      if (score < local_best.score) {
-        local_best.score = score;
-        local_best.pos = box_ptr->temp_pos;
-        local_best.size = rt_vairant;
-        local_best.local_any_fit = true;
-      }
-    }
-
-    if (local_best.local_any_fit) {
-#pragma omp atomic
-      debug_fit_count++;
-      // #pragma omp critical(update_best)
-      {
-        if (local_best.score < best) {
-          best = local_best.score;
-          best_idx = box_index;
-          cur_box_ptr = box_ptr;
-          box_ptr->temp_pos = local_best.pos;
-          box_ptr->size = local_best.size;
-          DEBUG_LOG_ENDL("  >>> Новый лучший кандидат: Box "
-                         << i << " rot=" << local_best_rot << " scores=["
-                         << local_best[0] << "," << local_best[1] << ","
-                         << local_best[2] << "]");
-        }
+      if (score < best_candidate.score) {
+        best_candidate = PlacementCandidate{box_ptr, candidate_pos, rt_vairant,
+                                            cal_ratio, score};
       }
     }
   }
-
+  if (!best_candidate.box) {
+    pal_ptr->failed_in_row++;
+    return nullptr;
+  }
   DEBUG_LOG_ENDL("\n--- СТАТИСТИКА ПОИСКА ---");
   DEBUG_LOG_ENDL("Пропущено (уже placed): " << debug_skipped_placed);
   DEBUG_LOG_ENDL("Пропущено (превышение массы): " << debug_skipped_mass);
@@ -548,22 +477,12 @@ Box *box_placement_handle(Pallet *pal_ptr, Zone *zone_ptr,
   DEBUG_LOG_ENDL("Пропущено (коллизия): " << debug_skipped_collision);
   DEBUG_LOG_ENDL("Подошли хотя бы в одном повороте: " << debug_fit_count);
 
-  if (best_idx == -1) {
-    DEBUG_LOG_ENDL(
-        ">>> РЕЗУЛЬТАТ: НЕ НАЙДЕНО подходящей коробки для этой зоны!");
-    pal_ptr->failed_in_row++;
-    return nullptr;
-  }
+  best_candidate.box->pos = best_candidate.pos;
+  best_candidate.box->size = best_candidate.size;
+  best_candidate.box->ratio = best_candidate.ratio;
 
-  DEBUG_LOG_ENDL(">>> РЕЗУЛЬТАТ: Выбрана Box "
-                 << best_idx << " размер=("
-                 << cur_box_ptr->xyz_size[cur_box_ptr->rotate][0] << "x"
-                 << cur_box_ptr->xyz_size[cur_box_ptr->rotate][1] << "x"
-                 << cur_box_ptr->xyz_size[cur_box_ptr->rotate][2]
-                 << ") rot=" << cur_box_ptr->rotate);
-
-  place_box(pal_ptr, zone_ptr, cur_box_ptr, total_boxes);
-  return cur_box_ptr;
+  place_box(pal_ptr, zone_ptr, best_candidate.box, total_boxes);
+  return best_candidate.box;
 }
 
 bool can_place_box_in_zone(Zone *zone, int w, int h, int d) {
