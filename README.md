@@ -73,18 +73,15 @@ vcpkg install raylib:x64-windows
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/3d-pallet-packer.git
-cd 3d-pallet-packer
+git clone https://github.com/anderfan/3d-bin-packer.git
+cd 3d-bin-packer
 
 # 2. Configure project via CMake
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B build 
 
 # 3. Build executable
-cmake --build build --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+cmake --build build
 ```
-
-The compiled binary will be located in the `build/` directory (e.g., `./build/3dBox` or `./build/Release/3dBox.exe`).
-
 ---
 ### 3D Viewport Navigation
 | Input | Action |
