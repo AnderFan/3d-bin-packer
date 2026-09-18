@@ -39,7 +39,6 @@ CMakeFiles/
 
 # Dependencies (если устанавливаете локально)
 lib/
-include/
 vcpkg_installed/
 
 # OS files
